@@ -1173,7 +1173,8 @@ function AppInner() {
         address: profile.address,
         children: profile.children.map((c) => ({
           ...c,
-          cycleUsed: cycleUsage[c.id] || 0,
+          cycleUsed: cycleUsage[c.id]?.used || 0,
+          cycleSkipped: cycleUsage[c.id]?.skipped || 0,
           payment: paymentByChild[c.id] || { status: "unpaid", amount: 0, method: null },
         })),
         order,
@@ -4027,6 +4028,14 @@ function PaymentView({ children, selectedChildIds, onToggleChild, onCheckout, t 
               <div style={{ ...styles.agendaTextCol, marginLeft: 10 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#33402F" }}>{child.name}</div>
                 <div style={{ fontSize: 12, color: "#9AA39A", marginTop: 1 }}>{formatCAD(calcFee(1).total)}</div>
+                <div style={{ fontSize: 11.5, color: "#7C8A7C", marginTop: 3, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <span>사용 {cycleUsed}회</span>
+                  <span>·</span>
+                  <span>스킵 {child.cycleSkipped || 0}회</span>
+                  <span>·</span>
+                  <span style={{ fontWeight: 700, color: "#4F7A44" }}>남음 {remaining}회</span>
+                  <span style={{ color: "#C9CFC9" }}>(총 {childQuota}회)</span>
+                </div>
                 {!alreadyHandled && (
                   <div style={{ fontSize: 11.5, color: isDue || eligibleEarly ? "#4F7A44" : "#9AA39A", marginTop: 2, fontWeight: isDue || eligibleEarly ? 700 : 500 }}>
                     {isDue ? t("payment.dueNow") : eligibleEarly ? t("payment.earlyPayAvailable", { used: cycleUsed, total: childQuota }) : t("payment.cycleProgress", { used: cycleUsed, total: childQuota })}
