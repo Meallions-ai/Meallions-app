@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { CalendarDays, UtensilsCrossed, Megaphone, ChevronLeft, ChevronRight, Check, X, CreditCard, Loader2, User, LogOut, Lock, Settings } from "lucide-react";
+import { CalendarDays, UtensilsCrossed, Megaphone, ChevronLeft, ChevronRight, Check, X, CreditCard, Loader2, User, LogOut, Lock, Settings, Star } from "lucide-react";
 import * as api from "./supabase-api"; // supabase-schema.sql + supabase-api.js를 먼저 프로젝트에 설정하세요
 
 // ---- 샘플 데이터 (실제 운영 시 관리자 입력으로 교체) ----
@@ -2472,10 +2472,7 @@ function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdat
 
   return (
     <div>
-      <div style={styles.sectionTitle}>리뷰함</div>
-      <ReviewsPanel />
-
-      <div style={{ ...styles.sectionTitle, marginTop: 22 }}>데이터 백업</div>
+      <div style={styles.sectionTitle}>데이터 백업</div>
       <div style={{ ...styles.profileCard, background: "#FDF1DD" }}>
         <p style={{ ...styles.helperText, marginTop: 0 }}>
           Supabase 무료 플랜은 자동 백업이 없어요. 앱에 문제가 생겼을 때를 대비해, 정기적으로 이 버튼을 눌러 전체 데이터를 파일로 받아두는 걸 추천드려요.
@@ -3223,6 +3220,12 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
           />
         )}
         {tab === "notice" && <AdminNoticeEditor notices={notices} onUpdateNotices={onUpdateNotices} onSendNoticeNotification={onSendNoticeNotification} />}
+        {tab === "reviews" && (
+          <div>
+            <div style={styles.sectionTitle}>학부모 리뷰</div>
+            <ReviewsPanel />
+          </div>
+        )}
         {tab === "settings" && (
           <AdminSettingsView
             pricing={pricing}
@@ -3242,6 +3245,7 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
         <TabButton icon={<CreditCard size={20} />} label="결제현황" active={tab === "payment"} onClick={() => setTab("payment")} />
         <TabButton icon={<UtensilsCrossed size={20} />} label="메뉴관리" active={tab === "menu"} onClick={() => setTab("menu")} />
         <TabButton icon={<Megaphone size={20} />} label="공지사항" active={tab === "notice"} onClick={() => setTab("notice")} />
+        <TabButton icon={<Star size={20} />} label="리뷰" active={tab === "reviews"} onClick={() => setTab("reviews")} />
         <TabButton icon={<Settings size={20} />} label="설정" active={tab === "settings"} onClick={() => setTab("settings")} />
       </nav>
     </div>
