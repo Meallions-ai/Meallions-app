@@ -1153,7 +1153,13 @@ function AppInner() {
   const loadMyAccount = async (userId) => {
     try {
       const profile = await api.getMyProfile(userId);
-      const order = (await api.getOrder(userId, activeKey)) || [];
+      // 사이클 종료 1주일 전부터 다음 달 신청도 미리 받기 때문에, 이번 달뿐 아니라 다음 달 신청 내역도 함께 불러와요.
+      const nextDate = new Date(activeYear, activeMonth, 1);
+      const nextKey = monthKey(nextDate.getFullYear(), nextDate.getMonth() + 1);
+      const [order, nextOrder] = await Promise.all([
+        api.getOrder(userId, activeKey),
+        api.getOrder(userId, nextKey),
+      ]);
       const childIds = profile.children.map((c) => c.id);
       const [paymentByChild, cycleUsage] = await Promise.all([
         api.getLatestPayments(childIds),
@@ -1171,6 +1177,7 @@ function AppInner() {
           payment: paymentByChild[c.id] || { status: "unpaid", amount: 0, method: null },
         })),
         order,
+        ordersByMonth: { [activeKey]: order || [], [nextKey]: nextOrder || [] },
       });
     } catch (e) {
       setDataError("내 정보를 불러오는 중 오류가 발생했어요. 새로고침 후 다시 시도해주세요.");
@@ -1435,7 +1442,11 @@ function AppInner() {
   const handleUpdateOrder = async (key, dayArray) => {
     try {
       await api.saveOrder(account.id, key, dayArray);
-      setAccount((prev) => (key === activeKey ? { ...prev, order: dayArray } : prev));
+      setAccount((prev) => ({
+        ...prev,
+        order: key === activeKey ? dayArray : prev.order,
+        ordersByMonth: { ...(prev.ordersByMonth || {}), [key]: dayArray },
+      }));
     } catch (e) {
       setDataError("신청 내역 저장 중 오류가 발생했어요. 다시 시도해주세요.");
     }
@@ -1443,8 +1454,9 @@ function AppInner() {
 
   // 지난달과 동일하게 신청: 지난달에 요일별로(월/화/목) 신청했던 비율을 그대로 이번달에 적용해요.
   // 예) 지난달 화요일을 전부 스킵했다면, 이번달 화요일도 전부 스킵으로 시작해요.
-  const handleCopyPreviousMonth = async () => {
-    const prevDate = new Date(activeYear, activeMonth - 2, 1);
+  // targetYear/targetMonth를 넘기면 그 달(예: 미리 신청 중인 다음 달) 기준으로 "그 이전 달"을 비교해요.
+  const handleCopyPreviousMonth = async (targetYear = activeYear, targetMonth = activeMonth) => {
+    const prevDate = new Date(targetYear, targetMonth - 2, 1);
     const prevYear = prevDate.getFullYear();
     const prevMonth = prevDate.getMonth() + 1;
     const prevKey = monthKey(prevYear, prevMonth);
@@ -3380,11 +3392,27 @@ function ProfileView({ account, onUpdateChild, onUpdateAddress, onUpdateRecovery
 
 function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeYear, activeMonth, activeKey, activeLabel, onUpdateChild, onUpdateOrder, onUpdatePayment, onCancelPayment, onDismissPaymentNotice, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, onLogout, dataError, onDismissDataError, canInstall, onInstallClick, onCopyPreviousMonth, t }) {
   const [tab, setTab] = useState("order");
-  const availableDays = useMemo(() => Object.keys(menus).filter((d) => !menus[d].isHoliday).map(Number).sort((a, b) => a - b), [menus]);
-  const [selected, setSelected] = useState(new Set((account.ordersByMonth && account.ordersByMonth[activeKey]) || availableDays));
+  // 신청 탭은 사이클이 끝나기 1주일 전부터 다음 달 신청도 미리 받을 수 있도록, 이번 달/다음 달을 전환할 수 있어요.
+  const [monthOffset, setMonthOffset] = useState(0); // 0 = 이번달, 1 = 다음달
+  const viewDate = useMemo(() => new Date(activeYear, activeMonth - 1 + monthOffset, 1), [activeYear, activeMonth, monthOffset]);
+  const viewYear = viewDate.getFullYear();
+  const viewMonth = viewDate.getMonth() + 1;
+  const viewKey = monthKey(viewYear, viewMonth);
+  const viewLabel = monthLabel(viewYear, viewMonth);
+  const viewMenus = menusByMonth[viewKey] || {};
+  const availableDays = useMemo(() => Object.keys(viewMenus).filter((d) => !viewMenus[d].isHoliday).map(Number).sort((a, b) => a - b), [viewMenus]);
+  const [selected, setSelected] = useState(new Set((account.ordersByMonth && account.ordersByMonth[viewKey]) || availableDays));
+  // 이번 달 ↔ 다음 달 전환 시, 그 달에 저장된 신청 내역(없으면 배송일 전체)으로 다시 맞춰줘요.
+  useEffect(() => {
+    const saved = account.ordersByMonth && account.ordersByMonth[viewKey];
+    setSelected(new Set(saved || availableDays));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewKey]);
   const [detailDay, setDetailDay] = useState(null);
-  // 마감 48시간 이내로 다가온 신청/스킵 건이 있으면 알려줘요.
-  const upcomingDeadline = useMemo(() => getUpcomingDeadline(availableDays, activeYear, activeMonth, 48), [availableDays, activeYear, activeMonth]);
+  // 마감 48시간 이내로 다가온 신청/스킵 건이 있으면 알려줘요. (실제 오늘 기준 이번 달 마감만 알려줘요)
+  const currentMenus = menusByMonth[activeKey] || {};
+  const currentAvailableDays = useMemo(() => Object.keys(currentMenus).filter((d) => !currentMenus[d].isHoliday).map(Number).sort((a, b) => a - b), [currentMenus]);
+  const upcomingDeadline = useMemo(() => getUpcomingDeadline(currentAvailableDays, activeYear, activeMonth, 48), [currentAvailableDays, activeYear, activeMonth]);
   const [dismissDeadlineBanner, setDismissDeadlineBanner] = useState(false);
   useEffect(() => {
     if (!upcomingDeadline) setDismissDeadlineBanner(false);
@@ -3404,16 +3432,16 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
 
   const handleCopyPreviousMonthClick = async () => {
     setCopyingPrevMonth(true);
-    const ratioByWeekday = await onCopyPreviousMonth();
+    const ratioByWeekday = await onCopyPreviousMonth(viewYear, viewMonth);
     if (ratioByWeekday) {
       const newSelected = new Set(
         availableDays.filter((d) => {
-          const wd = getWeekday(activeYear, activeMonth, d);
+          const wd = getWeekday(viewYear, viewMonth, d);
           return (ratioByWeekday[wd] ?? 1) >= 0.5;
         })
       );
       setSelected(newSelected);
-      onUpdateOrder(activeKey, [...newSelected]);
+      onUpdateOrder(viewKey, [...newSelected]);
     }
     setCopyingPrevMonth(false);
   };
@@ -3461,7 +3489,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
   };
 
   const toggleDay = (day) => {
-    if (isSkipLocked(activeYear, activeMonth, day) || isBeforeServiceStart(activeYear, activeMonth, day)) return;
+    if (isSkipLocked(viewYear, viewMonth, day) || isBeforeServiceStart(viewYear, viewMonth, day)) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(day)) {
@@ -3469,14 +3497,14 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
       } else {
         next.add(day);
       }
-      onUpdateOrder(activeKey, [...next]);
+      onUpdateOrder(viewKey, [...next]);
       return next;
     });
   };
 
   const weeks = useMemo(() => {
-    const total = daysInMonth(activeYear, activeMonth);
-    const firstWd = firstWeekdayOfMonth(activeYear, activeMonth);
+    const total = daysInMonth(viewYear, viewMonth);
+    const firstWd = firstWeekdayOfMonth(viewYear, viewMonth);
     const cells = [];
     for (let i = 0; i < firstWd; i++) cells.push(null);
     for (let d = 1; d <= total; d++) cells.push(d);
@@ -3484,7 +3512,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
     const rows = [];
     for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
     return rows;
-  }, []);
+  }, [viewYear, viewMonth]);
 
   return (
     <div style={styles.app}>
@@ -3592,10 +3620,14 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
         {tab === "order" && (
           <OrderView
             weeks={weeks}
-            menus={menus}
+            menus={viewMenus}
             availableDays={availableDays}
-            activeYear={activeYear}
-            activeMonth={activeMonth}
+            activeYear={viewYear}
+            activeMonth={viewMonth}
+            monthLabel={viewLabel}
+            monthOffset={monthOffset}
+            onPrevMonth={() => setMonthOffset((o) => Math.max(0, o - 1))}
+            onNextMonth={() => setMonthOffset((o) => Math.min(1, o + 1))}
             selected={selected}
             toggleDay={toggleDay}
             usedCount={usedCount}
@@ -3622,14 +3654,14 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
         {tab === "profile" && <ProfileView account={account} onUpdateChild={onUpdateChild} onUpdateAddress={onUpdateAddress} onUpdateRecoveryEmail={onUpdateRecoveryEmail} currentAuthEmail={currentAuthEmail} onViewPrivacyPolicy={onViewPrivacyPolicy} pushStatus={pushStatus} onTogglePush={onTogglePush} t={t} />}
       </main>
 
-      {detailDay && menus[detailDay] && (
+      {detailDay && viewMenus[detailDay] && (
         <DayDetailSheet
           day={detailDay}
-          monthLabel={`${activeMonth}월`}
-          menu={menus[detailDay]}
+          monthLabel={`${viewMonth}월`}
+          menu={viewMenus[detailDay]}
           isSelected={selected.has(detailDay)}
-          locked={isSkipLocked(activeYear, activeMonth, detailDay) || isBeforeServiceStart(activeYear, activeMonth, detailDay)}
-          lockedReason={isBeforeServiceStart(activeYear, activeMonth, detailDay) ? "serviceNotStarted" : "deadline"}
+          locked={isSkipLocked(viewYear, viewMonth, detailDay) || isBeforeServiceStart(viewYear, viewMonth, detailDay)}
+          lockedReason={isBeforeServiceStart(viewYear, viewMonth, detailDay) ? "serviceNotStarted" : "deadline"}
           onToggle={() => toggleDay(detailDay)}
           onClose={() => setDetailDay(null)}
           t={t}
@@ -3689,9 +3721,22 @@ function TabButton({ icon, label, active, onClick }) {
   );
 }
 
-function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, selected, toggleDay, usedCount, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, t }) {
+function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, monthLabel: viewMonthLabel, monthOffset, onPrevMonth, onNextMonth, selected, toggleDay, usedCount, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, t }) {
   return (
     <div>
+      {typeof monthOffset === "number" && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <button onClick={onPrevMonth} disabled={monthOffset === 0} style={{ ...styles.iconBtn, opacity: monthOffset === 0 ? 0.35 : 1 }}>
+            <ChevronLeft size={18} />
+          </button>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#33402F" }}>
+            {viewMonthLabel} {monthOffset === 1 && <span style={{ fontSize: 11.5, fontWeight: 700, color: "#4F7A44", marginLeft: 4 }}>· 다음 사이클 미리 신청</span>}
+          </div>
+          <button onClick={onNextMonth} disabled={monthOffset === 1} style={{ ...styles.iconBtn, opacity: monthOffset === 1 ? 0.35 : 1 }}>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
       <div style={styles.quotaCard}>
         <div>
           <div style={styles.quotaLabel}>{t("order.usedTitle")}</div>
@@ -3712,6 +3757,11 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, selec
         <br />{t("order.lockHelper")}
       </p>
 
+      {availableDays.length === 0 && (
+        <div style={{ fontSize: 13, color: "#9AA39A", padding: "16px 2px", textAlign: "center", background: "#F7F9F6", borderRadius: 12, marginBottom: 10 }}>
+          {viewMonthLabel} 메뉴가 아직 준비되지 않았어요. 관리자가 메뉴를 등록하면 여기서 신청할 수 있어요.
+        </div>
+      )}
 
       <div style={styles.calendarCard}>
         <div style={styles.weekRow}>
