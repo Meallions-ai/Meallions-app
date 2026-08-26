@@ -1,0 +1,15 @@
+{
+  "name": "MEALLIONS 도시락",
+  "short_name": "MEALLIONS",
+  "description": "밴쿠버 학교 도시락 배달 신청 · 결제 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FEFBF4",
+  "theme_color": "#4F7A44",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
