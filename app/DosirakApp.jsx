@@ -2355,6 +2355,92 @@ function PromoCodeManager({ promoCodes, onCreatePromoCode, onTogglePromoCode, on
   );
 }
 
+// 학부모가 결제 후 남긴 리뷰(별점 3개 + 코멘트)를 모아 보여줘요. 평균 별점과 최근 리뷰 목록을 함께 표시해요.
+function ReviewsPanel() {
+  const [reviews, setReviews] = useState(null); // null = 아직 안 불러옴
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    setError("");
+    api
+      .getReviews()
+      .then((rows) => setReviews(rows))
+      .catch(() => setError("리뷰를 불러오는 중 오류가 발생했어요."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const withRatings = (reviews || []).filter((r) => r.service_rating || r.quality_rating || r.kids_rating);
+  const avg = (key) => {
+    const vals = withRatings.map((r) => r[key]).filter((v) => v != null);
+    if (vals.length === 0) return null;
+    return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+  };
+  const avgService = avg("service_rating");
+  const avgQuality = avg("quality_rating");
+  const avgKids = avg("kids_rating");
+
+  return (
+    <div style={styles.profileCard}>
+      {reviews === null || loading ? (
+        <div style={{ fontSize: 13, color: "#9AA39A", padding: "10px 2px" }}>불러오는 중...</div>
+      ) : error ? (
+        <div style={{ fontSize: 13, color: "#C0392B" }}>{error}</div>
+      ) : reviews.length === 0 ? (
+        <div style={{ fontSize: 13, color: "#9AA39A", padding: "10px 2px" }}>아직 등록된 리뷰가 없어요.</div>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            {avgService && (
+              <div style={{ ...styles.quotaBadge, background: "#E7F3EA", color: "#4F7A44" }}>서비스 ★{avgService}</div>
+            )}
+            {avgQuality && (
+              <div style={{ ...styles.quotaBadge, background: "#E7F3EA", color: "#4F7A44" }}>퀄리티 ★{avgQuality}</div>
+            )}
+            {avgKids && (
+              <div style={{ ...styles.quotaBadge, background: "#E7F3EA", color: "#4F7A44" }}>아이만족도 ★{avgKids}</div>
+            )}
+            <div style={{ ...styles.quotaBadge, background: "#F2F6F2", color: "#7C8A7C" }}>총 {reviews.length}건</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {reviews.map((r) => (
+              <div key={r.id} style={{ borderTop: "1px solid #EDEFEA", paddingTop: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#33402F" }}>
+                    {r.profiles?.parent_name || "학부모"}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#9AA39A" }}>
+                    {new Date(r.created_at).toLocaleDateString("ko-KR")}
+                  </div>
+                </div>
+                {(r.service_rating || r.quality_rating || r.kids_rating) && (
+                  <div style={{ fontSize: 11.5, color: "#7C8A7C", marginTop: 3 }}>
+                    {r.service_rating ? `서비스 ★${r.service_rating} ` : ""}
+                    {r.quality_rating ? `퀄리티 ★${r.quality_rating} ` : ""}
+                    {r.kids_rating ? `아이만족도 ★${r.kids_rating}` : ""}
+                  </div>
+                )}
+                {r.message && (
+                  <div style={{ fontSize: 13, color: "#33402F", marginTop: 5, whiteSpace: "pre-wrap" }}>{r.message}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <button onClick={load} disabled={loading} style={{ ...styles.revokeBtn, width: "100%", marginTop: 12 }}>
+        {loading ? "새로고침 중..." : "새로고침"}
+      </button>
+    </div>
+  );
+}
+
 function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, activityLog }) {
   const [monthlyFee, setMonthlyFee] = useState(String(pricing.monthlyFee));
   const [taxPercent, setTaxPercent] = useState(String(Math.round(pricing.taxRate * 10000) / 100));
@@ -2386,7 +2472,10 @@ function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdat
 
   return (
     <div>
-      <div style={styles.sectionTitle}>데이터 백업</div>
+      <div style={styles.sectionTitle}>리뷰함</div>
+      <ReviewsPanel />
+
+      <div style={{ ...styles.sectionTitle, marginTop: 22 }}>데이터 백업</div>
       <div style={{ ...styles.profileCard, background: "#FDF1DD" }}>
         <p style={{ ...styles.helperText, marginTop: 0 }}>
           Supabase 무료 플랜은 자동 백업이 없어요. 앱에 문제가 생겼을 때를 대비해, 정기적으로 이 버튼을 눌러 전체 데이터를 파일로 받아두는 걸 추천드려요.
