@@ -2855,7 +2855,7 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
             </div>
           </div>
           <button onClick={forceAppRefresh} style={styles.logoutBtn} title="새로고침">
-            <RefreshCw size={16} color="#8A7355" />
+            <RefreshCw size={16} color="#D97757" />
           </button>
           <button onClick={onLogout} style={styles.logoutBtn}>
             <LogOut size={16} color="#8A7355" />
@@ -3658,7 +3658,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
             </button>
           )}
           <button onClick={forceAppRefresh} style={styles.logoutBtn} title="새로고침">
-            <RefreshCw size={16} color="#4F7A44" />
+            <RefreshCw size={16} color="#D97757" />
           </button>
           <button onClick={onLogout} style={styles.logoutBtn}>
             <LogOut size={16} color="#4F7A44" />
