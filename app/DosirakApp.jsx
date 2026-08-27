@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { CalendarDays, UtensilsCrossed, Megaphone, ChevronLeft, ChevronRight, Check, X, CreditCard, Loader2, User, LogOut, Lock, Settings, Star } from "lucide-react";
+import { CalendarDays, UtensilsCrossed, Megaphone, ChevronLeft, ChevronRight, Check, X, CreditCard, Loader2, User, LogOut, Lock, Settings, Star, RefreshCw } from "lucide-react";
 import * as api from "./supabase-api"; // supabase-schema.sql + supabase-api.js를 먼저 프로젝트에 설정하세요
 
 // ---- 샘플 데이터 (실제 운영 시 관리자 입력으로 교체) ----
@@ -911,6 +911,22 @@ function vancouverNow() {
 
 function monthKey(year, month) {
   return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+// 앱을 껐다 켜지 않고도 최신 버전을 강제로 받아오는 새로고침이에요.
+// 서비스워커에게 업데이트를 확인시키고, 브라우저 캐시를 우회하도록 주소에 타임스탬프를 붙여 다시 불러와요.
+async function forceAppRefresh() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((reg) => reg.update()));
+    }
+  } catch (e) {
+    // 업데이트 확인이 실패해도 새로고침 자체는 계속 진행해요.
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set("_r", Date.now().toString());
+  window.location.href = url.toString();
 }
 
 // 현재(밴쿠버 기준) 활성 월 — 캘린더가 자동으로 이 달을 보여줌
@@ -2838,6 +2854,9 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
               {activeLabel} · <span style={styles.adminBadge}>관리자 모드</span>
             </div>
           </div>
+          <button onClick={forceAppRefresh} style={styles.logoutBtn} title="새로고침">
+            <RefreshCw size={16} color="#8A7355" />
+          </button>
           <button onClick={onLogout} style={styles.logoutBtn}>
             <LogOut size={16} color="#8A7355" />
           </button>
@@ -3183,11 +3202,9 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
                       승인 취소
                     </button>
                   )}
-                  {status === "unpaid" && (
-                    <button onClick={() => onResetChildCycle(child.id)} style={styles.revokeBtn}>
-                      사이클 초기화 (0으로 리셋)
-                    </button>
-                  )}
+                  <button onClick={() => onResetChildCycle(child.id)} style={styles.revokeBtn}>
+                    사이클 초기화 (0으로 리셋)
+                  </button>
                   <ServiceStartDateField child={child} onUpdateServiceStartDate={onUpdateServiceStartDate} />
                   <TotalQuotaField child={child} onUpdateTotalQuota={onUpdateTotalQuota} />
                 </div>
@@ -3640,6 +3657,9 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
               {t("common.install")}
             </button>
           )}
+          <button onClick={forceAppRefresh} style={styles.logoutBtn} title="새로고침">
+            <RefreshCw size={16} color="#4F7A44" />
+          </button>
           <button onClick={onLogout} style={styles.logoutBtn}>
             <LogOut size={16} color="#4F7A44" />
           </button>
