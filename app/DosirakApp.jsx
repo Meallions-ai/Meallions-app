@@ -1089,6 +1089,17 @@ function monthLabelLocalized(year, month, language) {
   }
 }
 
+// 상세 팝업 헤더에 쓰는 "월 일" 표기 — 언어마다 순서가 달라서(예: 영어 Aug 15, 프랑스어 15 août) Intl로 맞춰요.
+function monthDayLabelLocalized(year, month, day, language) {
+  const localeMap = { ko: "ko-KR", en: "en-US", fr: "fr-FR", zh: "zh-CN" };
+  const locale = localeMap[language] || "ko-KR";
+  try {
+    return new Intl.DateTimeFormat(locale, { month: "long", day: "numeric" }).format(new Date(year, month - 1, day));
+  } catch (e) {
+    return `${month}월 ${day}일`;
+  }
+}
+
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 const INITIAL_MENUS = {
@@ -4116,7 +4127,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
       {detailDay && viewMenus[detailDay] && (
         <DayDetailSheet
           day={detailDay}
-          monthLabel={`${viewMonth}월`}
+          monthLabel={monthDayLabelLocalized(viewYear, viewMonth, detailDay, language)}
           menu={viewMenus[detailDay]}
           isSelected={selected.has(detailDay)}
           locked={isSkipLocked(viewYear, viewMonth, detailDay) || isBeforeServiceStart(viewYear, viewMonth, detailDay)}
@@ -4477,7 +4488,7 @@ function DayDetailSheet({ day, monthLabel: mLabel, menu, isSelected, locked, loc
       <div style={styles.sheet} onClick={(e) => e.stopPropagation()} className="fade-item">
         <div style={styles.sheetHandle} />
         <div style={styles.sheetHeader}>
-          <div style={{ fontSize: 15, color: "#7C8A7C" }}>{mLabel} {day}</div>
+          <div style={{ fontSize: 15, color: "#7C8A7C" }}>{mLabel}</div>
           <button onClick={onClose} style={styles.iconBtn}><X size={18} /></button>
         </div>
         {menu.isHoliday ? (
