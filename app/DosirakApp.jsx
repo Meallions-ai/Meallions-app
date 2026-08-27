@@ -123,7 +123,7 @@ const TRANSLATIONS = {
     "order.fruit": "과일",
 
     "detail.applyBtn": "이 날짜 신청하기",
-    "detail.cancelBtn": "이 날짜 취소하기",
+    "detail.cancelBtn": "이 날짜 스킵하기",
     "detail.lockedNotice": "🔒 이 날짜는 변경 마감(전주 금요일)이 지나 신청 상태를 바꿀 수 없어요.",
     "detail.holidayNoDelivery": "이 날은 배송이 없어요.",
     "detail.serviceNotStartedNotice": "🔒 아직 서비스 시작일 이전이라 신청·스킵을 변경할 수 없어요.",
@@ -356,7 +356,7 @@ const TRANSLATIONS = {
     "order.payDone": "Payment done ✓",
 
     "detail.applyBtn": "Order this day",
-    "detail.cancelBtn": "Cancel this day",
+    "detail.cancelBtn": "Skip this day",
     "detail.lockedNotice": "🔒 The change deadline (the Friday before) has passed, so this day can't be changed.",
     "detail.holidayNoDelivery": "There is no delivery on this day.",
     "detail.serviceNotStartedNotice": "🔒 This is before your service start date, so it can't be ordered or changed.",
@@ -589,7 +589,7 @@ const TRANSLATIONS = {
 
     "order.payDone": "Paiement effectué ✓",
     "detail.applyBtn": "Commander ce jour",
-    "detail.cancelBtn": "Annuler ce jour",
+    "detail.cancelBtn": "Ignorer ce jour",
     "detail.lockedNotice": "🔒 La date limite de modification (vendredi précédent) est passée, ce jour ne peut plus être modifié.",
     "detail.holidayNoDelivery": "Il n'y a pas de livraison ce jour-là.",
     "detail.serviceNotStartedNotice": "🔒 C'est avant votre date de début de service, donc cela ne peut pas être commandé ou modifié.",
@@ -821,8 +821,8 @@ const TRANSLATIONS = {
     "order.fruit": "水果",
 
     "detail.applyBtn": "申请该日期",
+    "detail.cancelBtn": "跳过该日期",
     "order.payDone": "支付完成 ✓",
-    "detail.cancelBtn": "取消该日期",
     "detail.lockedNotice": "🔒 该日期已过更改截止时间（前一周周五），无法再更改申请状态。",
     "detail.holidayNoDelivery": "当天不配送。",
     "detail.serviceNotStartedNotice": "🔒 尚未到服务开始日期，无法申请或更改。",
