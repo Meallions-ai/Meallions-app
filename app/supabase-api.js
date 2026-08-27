@@ -387,8 +387,21 @@ function getCycleCutoff(child) {
   return serviceStart > paidThrough ? serviceStart : paidThrough;
 }
 
+// 신청/스킵 변경 마감: 배송 주간의 전주 금요일 23:59까지 (DosirakApp.jsx의 getSkipDeadline과 동일한 규칙이에요).
+function getSkipDeadline(year, month, day) {
+  const date = new Date(year, month - 1, day);
+  const dow = date.getDay();
+  const offsetFromMonday = dow - 1;
+  const monday = new Date(year, month - 1, day - offsetFromMonday);
+  const deadline = new Date(monday);
+  deadline.setDate(deadline.getDate() - 3);
+  deadline.setHours(23, 59, 59, 999);
+  return deadline;
+}
+
 // 자녀별 "사이클 시작 이후 사용(신청)/스킵 횟수"를 함께 계산해요.
-// 스킵은 이미 지나간 배송일 중 신청하지 않은 날짜만 셉니다 (아직 안 지난 날은 스킵이 아니라 "미정"이에요).
+// 스킵은 "이미 마감(전주 금요일)이 지나서 더 이상 바꿀 수 없게 확정된 날짜" 중 신청 안 한 날짜만 셉니다.
+// (실제 배송일이 아직 안 지났어도, 마감이 지났으면 이미 확정된 스킵으로 봐요 — 아직 마감 전인 날은 스킵이 아니라 "미정"이에요.)
 export async function getCycleUsage(profileId, children) {
   const { data: orders, error } = await supabase
     .from("orders")
@@ -429,9 +442,13 @@ export async function getCycleUsage(profileId, children) {
       const [y, m] = row.year_month.split("-").map(Number);
       const date = new Date(y, m - 1, row.day);
       if (date <= cutoff) continue;
-      const isSelected = ordersByYM[row.year_month]?.has(row.day);
+      const orderSet = ordersByYM[row.year_month];
+      // 학부모가 그 달을 한 번도 안 건드려서 신청 기록 자체가 없으면, 캘린더 화면 기본값(전부 신청됨)과
+      // 똑같이 "신청됨"으로 봐요. 실제로 저장된 기록이 있는 달에서는(=한 번이라도 건드렸으면) 체크 안 한
+      // 날짜는 마감을 기다리지 않고 스킵 버튼을 누른 즉시 "스킵"으로 셉니다.
+      const isSelected = orderSet ? orderSet.has(row.day) : true;
       if (isSelected) used++;
-      else if (date <= now) skipped++;
+      else if (orderSet) skipped++;
     }
     cycleUsage[child.id] = { used, skipped };
   }
