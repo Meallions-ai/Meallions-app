@@ -764,4 +764,19 @@ export async function exportFullBackup() {
     supabase.from("promo_codes").select("*"),
     supabase.from("settings").select("*"),
   ]);
-  const errors = [profiles, c
+  const errors = [profiles, children, orders, payments, menus, notices, promoCodes, settings]
+    .map((r) => r.error)
+    .filter(Boolean);
+  if (errors.length) throw errors[0];
+  return {
+    exportedAt: new Date().toISOString(),
+    profiles: profiles.data,
+    children: children.data,
+    orders: orders.data,
+    payments: payments.data,
+    menus: menus.data,
+    notices: notices.data,
+    promoCodes: promoCodes.data,
+    settings: settings.data,
+  };
+}
