@@ -3725,6 +3725,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
             selected={selected}
             toggleDay={toggleDay}
             usedCount={usedCount}
+            familyChildren={account.children}
             setDetailDay={setDetailDay}
             isBeforeServiceStart={isBeforeServiceStart}
             onCopyPreviousMonth={handleCopyPreviousMonthClick}
@@ -3815,7 +3816,7 @@ function TabButton({ icon, label, active, onClick }) {
   );
 }
 
-function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, monthLabel: viewMonthLabel, monthOffset, onPrevMonth, onNextMonth, selected, toggleDay, usedCount, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, t }) {
+function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, monthLabel: viewMonthLabel, monthOffset, onPrevMonth, onNextMonth, selected, toggleDay, usedCount, familyChildren, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, t }) {
   return (
     <div>
       {typeof monthOffset === "number" && (
@@ -3843,6 +3844,34 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
           <div style={{ ...styles.quotaBadge, background: "#E7F3EA", color: "#4F7A44" }}>{t("order.cycleHint")}</div>
         </div>
       </div>
+
+      {familyChildren && familyChildren.length > 0 && (
+        <div style={{ ...styles.profileCard, marginTop: 10, marginBottom: 4 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#7C8A7C", marginBottom: 8 }}>자녀별 사이클 현황</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {familyChildren.map((child) => {
+              const quota = getChildQuota(child);
+              const used = child.cycleUsed || 0;
+              const skipped = child.cycleSkipped || 0;
+              const remaining = Math.max(0, quota - used);
+              return (
+                <div key={child.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#33402F" }}>{child.name}</div>
+                  <div style={{ fontSize: 12, color: "#7C8A7C", display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <span>사용 {used}회</span>
+                    <span>·</span>
+                    <span>스킵 {skipped}회</span>
+                    <span>·</span>
+                    <span style={{ fontWeight: 700, color: "#4F7A44" }}>남음 {remaining}회</span>
+                    <span style={{ color: "#C9CFC9" }}>(총 {quota}회)</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <button onClick={onCopyPreviousMonth} disabled={copyingPrevMonth} style={styles.copyPrevMonthBtn}>
         {copyingPrevMonth ? <Loader2 size={14} className="spin" /> : null} {t("order.copyPrevMonth")}
       </button>
@@ -4028,14 +4057,6 @@ function PaymentView({ children, selectedChildIds, onToggleChild, onCheckout, t 
               <div style={{ ...styles.agendaTextCol, marginLeft: 10 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#33402F" }}>{child.name}</div>
                 <div style={{ fontSize: 12, color: "#9AA39A", marginTop: 1 }}>{formatCAD(calcFee(1).total)}</div>
-                <div style={{ fontSize: 11.5, color: "#7C8A7C", marginTop: 3, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <span>사용 {cycleUsed}회</span>
-                  <span>·</span>
-                  <span>스킵 {child.cycleSkipped || 0}회</span>
-                  <span>·</span>
-                  <span style={{ fontWeight: 700, color: "#4F7A44" }}>남음 {remaining}회</span>
-                  <span style={{ color: "#C9CFC9" }}>(총 {childQuota}회)</span>
-                </div>
                 {!alreadyHandled && (
                   <div style={{ fontSize: 11.5, color: isDue || eligibleEarly ? "#4F7A44" : "#9AA39A", marginTop: 2, fontWeight: isDue || eligibleEarly ? 700 : 500 }}>
                     {isDue ? t("payment.dueNow") : eligibleEarly ? t("payment.earlyPayAvailable", { used: cycleUsed, total: childQuota }) : t("payment.cycleProgress", { used: cycleUsed, total: childQuota })}
