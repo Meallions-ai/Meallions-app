@@ -1315,6 +1315,7 @@ function AppInner() {
       logActivity("update_total_quota", `개인별 사이클 횟수 설정: ${findChildLabel(childId)} → ${quota || "기본값"}`, { childId, quota });
     } catch (e) {
       setDataError("사이클 횟수 저장 중 오류가 발생했어요.");
+      throw e; // TotalQuotaField가 실제 저장 성공/실패를 화면에 정확히 표시할 수 있도록 다시 던져요.
     }
   };
 
@@ -2605,13 +2606,19 @@ function ServiceStartDateField({ child, onUpdateServiceStartDate }) {
 // 비워두면(빈 칸으로 저장) 다시 전체 기본값(관리자 설정의 사이클 요금 횟수)을 따릅니다.
 function TotalQuotaField({ child, onUpdateTotalQuota }) {
   const [value, setValue] = useState(child.total_quota != null ? String(child.total_quota) : "");
-  const [saved, setSaved] = useState(false);
+  const [status, setStatus] = useState("idle"); // idle | saving | saved | error
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const parsed = value.trim() === "" ? null : Math.max(1, parseInt(value, 10) || 1);
-    onUpdateTotalQuota(child.id, parsed);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    setStatus("saving");
+    try {
+      await onUpdateTotalQuota(child.id, parsed);
+      setStatus("saved");
+      setTimeout(() => setStatus("idle"), 1500);
+    } catch (e) {
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 2500);
+    }
   };
 
   return (
@@ -2628,10 +2635,13 @@ function TotalQuotaField({ child, onUpdateTotalQuota }) {
           placeholder={String(TOTAL_QUOTA)}
           style={{ ...styles.fieldInput, marginBottom: 0, flex: 1, minWidth: 0 }}
         />
-        <button onClick={handleSave} style={{ ...styles.revokeBtn, width: "auto", padding: "10px 16px", flexShrink: 0, marginTop: 0 }}>
-          {saved ? "저장됨 ✓" : "저장"}
+        <button onClick={handleSave} disabled={status === "saving"} style={{ ...styles.revokeBtn, width: "auto", padding: "10px 16px", flexShrink: 0, marginTop: 0 }}>
+          {status === "saving" ? "저장 중..." : status === "saved" ? "저장됨 ✓" : status === "error" ? "저장 실패 ✕" : "저장"}
         </button>
       </div>
+      {status === "error" && (
+        <div style={{ fontSize: 11, color: "#C0392B", marginTop: 4 }}>저장 중 오류가 발생했어요. 다시 시도해주세요.</div>
+      )}
     </div>
   );
 }
