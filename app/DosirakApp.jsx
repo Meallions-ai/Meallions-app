@@ -1467,8 +1467,28 @@ function AppInner() {
         order: key === activeKey ? dayArray : prev.order,
         ordersByMonth: { ...(prev.ordersByMonth || {}), [key]: dayArray },
       }));
+      refreshCycleUsage();
     } catch (e) {
       setDataError("신청 내역 저장 중 오류가 발생했어요. 다시 시도해주세요.");
+    }
+  };
+
+  // 신청/스킵을 바꾸거나 관리자가 사이클 횟수를 조정했을 때, 화면의 "사용/스킵/남음"이 바로 맞게 보이도록
+  // 서버에서 최신 사이클 사용량만 다시 계산해 가져와요 (프로필 전체를 다시 불러오는 것보다 가벼워요).
+  const refreshCycleUsage = async () => {
+    if (!account) return;
+    try {
+      const cycleUsage = await api.getCycleUsage(account.id, account.children);
+      setAccount((prev) => ({
+        ...prev,
+        children: prev.children.map((c) => ({
+          ...c,
+          cycleUsed: cycleUsage[c.id]?.used ?? c.cycleUsed,
+          cycleSkipped: cycleUsage[c.id]?.skipped ?? c.cycleSkipped,
+        })),
+      }));
+    } catch (e) {
+      // 여기서 실패해도 다음 새로고침 때 다시 맞춰지니 조용히 넘어가요.
     }
   };
 
