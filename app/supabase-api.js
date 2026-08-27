@@ -692,7 +692,7 @@ export async function getAllProfilesForRoleManagement() {
 
 // VAPID 공개키 — npx web-push generate-vapid-keys 로 생성한 뒤 여기에 붙여넣어주세요.
 // (공개키라서 코드에 그대로 노출돼도 안전해요. 비밀키는 Supabase 엣지 함수 시크릿에만 저장해요.)
-const VAPID_PUBLIC_KEY = "여기에_생성한_VAPID_PUBLIC_KEY를_붙여넣으세요";
+const VAPID_PUBLIC_KEY = "BCQcaKkvSA2kvK6jOZ12IrAThWPQULDc9QTHw5Hkp5tFiVl74Ij5Y38pBTBwEaXoYVVXxGBVmNlG2yyXTENudkU";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
