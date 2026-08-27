@@ -387,6 +387,8 @@ function getCycleCutoff(child) {
   return serviceStart > paidThrough ? serviceStart : paidThrough;
 }
 
+// 자녀별 "사이클 시작 이후 사용(신청)/스킵 횟수"를 함께 계산해요.
+// 스킵은 이미 지나간 배송일 중 신청하지 않은 날짜만 셉니다 (아직 안 지난 날은 스킵이 아니라 "미정"이에요).
 export async function getCycleUsage(profileId, children) {
   const { data: orders, error } = await supabase
     .from("orders")
@@ -394,21 +396,48 @@ export async function getCycleUsage(profileId, children) {
     .eq("profile_id", profileId);
   if (error) throw error;
 
+  // 스킵 횟수까지 계산하려면 그 기간의 실제 배송일(메뉴) 목록이 필요해서, 사이클 시작 시점부터 지금(+다음달 선신청분)까지의 메뉴를 불러와요.
+  const now = new Date();
+  const minCutoff = children.reduce((min, c) => {
+    const cutoff = getCycleCutoff(c);
+    return !min || cutoff < min ? cutoff : min;
+  }, null);
+  const monthsSet = new Set();
+  if (minCutoff) {
+    const d = new Date(minCutoff.getFullYear(), minCutoff.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1); // 다음 달 선(先)신청분까지 포함
+    while (d <= end) {
+      monthsSet.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+      d.setMonth(d.getMonth() + 1);
+    }
+  }
+  const { data: menuRows, error: menuErr } = monthsSet.size
+    ? await supabase.from("menus").select("year_month, day, is_holiday").in("year_month", [...monthsSet])
+    : { data: [], error: null };
+  if (menuErr) throw menuErr;
+
+  const ordersByYM = {};
+  for (const o of orders || []) ordersByYM[o.year_month] = new Set(o.selected_days || []);
+
   const cycleUsage = {};
   for (const child of children) {
     const cutoff = getCycleCutoff(child);
-    let count = 0;
-    for (const o of orders || []) {
-      const [y, m] = o.year_month.split("-").map(Number);
-      for (const day of o.selected_days || []) {
-        const date = new Date(y, m - 1, day);
-        if (date > cutoff) count++;
-      }
+    let used = 0;
+    let skipped = 0;
+    for (const row of menuRows || []) {
+      if (row.is_holiday) continue;
+      const [y, m] = row.year_month.split("-").map(Number);
+      const date = new Date(y, m - 1, row.day);
+      if (date <= cutoff) continue;
+      const isSelected = ordersByYM[row.year_month]?.has(row.day);
+      if (isSelected) used++;
+      else if (date <= now) skipped++;
     }
-    cycleUsage[child.id] = count;
+    cycleUsage[child.id] = { used, skipped };
   }
   return cycleUsage;
 }
+
 
 // 자녀들의 "현재 진행 중인(가장 최근) 결제 건"을 한 번에 가져옵니다.
 // 사이클이 달을 넘나들 수 있어서, 특정 year_month가 아니라 자녀별 최신 결제 기록을 기준으로 삼아요.
