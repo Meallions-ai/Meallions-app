@@ -4489,7 +4489,7 @@ function DayDetailSheet({ day, monthLabel: mLabel, menu, isSelected, locked, loc
           <>
             <div style={styles.sheetMain}>{menu.main}</div>
             <div style={styles.sheetSide}>{menu.side}</div>
-            {menu.fruit && <div style={styles.sheetFruit}>{getFruitEmoji(menu.fruit)} {menu.fruit}</div>}
+            {menu.fruit && <div style={styles.sheetFruit}>{menu.fruit}</div>}
             {locked ? (
               <div style={styles.lockedNotice}>
                 {lockedReason === "serviceNotStarted" ? t("detail.serviceNotStartedNotice") : t("detail.lockedNotice")}
