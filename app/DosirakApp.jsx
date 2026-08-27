@@ -1395,12 +1395,14 @@ function AppInner() {
     try {
       await api.signIn({ loginId, password });
       // onAuthStateChange가 session을 갱신 → useEffect가 프로필을 불러옴
+      return true;
     } catch (e) {
       setAuthError(
         e.message?.includes("Invalid login credentials")
           ? t("login.error.invalid")
           : t("login.error.generic")
       );
+      return false;
     }
   };
 
@@ -1749,19 +1751,44 @@ function AppInner() {
   );
 }
 
+const REMEMBER_LOGIN_KEY = "meallions_remember_login";
+
 function LoginScreen({ error, onLogin, onGoSignup, onRequestPasswordReset, language, setLanguage, t }) {
   const [id, setId] = useState("");
   const [pw, setPw] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotId, setForgotId] = useState("");
   const [forgotResult, setForgotResult] = useState(null); // { sent: bool, reason? }
   const [forgotSubmitting, setForgotSubmitting] = useState(false);
 
+  // 이전에 "아이디/비밀번호 저장"을 체크하고 로그인한 적이 있으면, 이 기기에서는 다음에도 자동으로 채워줘요.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(REMEMBER_LOGIN_KEY) || "null");
+      if (saved && saved.id) {
+        setId(saved.id);
+        setPw(saved.pw || "");
+        setRememberMe(true);
+      }
+    } catch (e) {
+      // 저장된 값이 손상됐으면 그냥 무시하고 빈 칸으로 시작해요.
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    await onLogin(id.trim(), pw);
+    const ok = await onLogin(id.trim(), pw);
+    if (ok) {
+      // 로그인에 성공했을 때만 저장/삭제를 확정해요 (틀린 비밀번호가 저장되는 걸 방지).
+      if (rememberMe) {
+        localStorage.setItem(REMEMBER_LOGIN_KEY, JSON.stringify({ id: id.trim(), pw }));
+      } else {
+        localStorage.removeItem(REMEMBER_LOGIN_KEY);
+      }
+    }
     setSubmitting(false);
   };
 
@@ -1857,6 +1884,18 @@ function LoginScreen({ error, onLogin, onGoSignup, onRequestPasswordReset, langu
               style={styles.input}
             />
           </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 8, cursor: "pointer" }}>
+            <div
+              onClick={() => setRememberMe((v) => !v)}
+              style={{ ...styles.checkbox, ...(rememberMe ? styles.checkboxChecked : {}), flexShrink: 0 }}
+            >
+              {rememberMe && <Check size={12} color="#fff" />}
+            </div>
+            <span style={{ fontSize: 13, color: "#5C6A5C" }} onClick={() => setRememberMe((v) => !v)}>
+              아이디/비밀번호 저장
+            </span>
+          </label>
 
           {error && (
             <div style={styles.loginError}>
