@@ -4633,21 +4633,29 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onSendMenuNotification, 
   const nextKey = monthKey(nextYear, nextMonthNum);
   const nextMenus = menusByMonth[nextKey] || {};
 
-  // 이어보기 모드용 — 이번달 + 다음달 날짜를 실제 날짜 순서로 하나로 합쳐요.
+  // 이어보기 모드는 "오늘 날짜 기준 이번 달"이 아니라, 이미 메뉴가 등록된 것 중 가장 최근 달을 기준으로 자동 계산해요.
+  // (예: 9월 메뉴부터 미리 입력해뒀다면, 8+9월이 아니라 9+10월이 이어져야 하니까요.)
+  const menuKeysWithData = Object.keys(menusByMonth).filter((k) => menusByMonth[k] && Object.keys(menusByMonth[k]).length > 0);
+  const combinedBaseKey = menuKeysWithData.length > 0 ? menuKeysWithData.sort().slice(-1)[0] : monthKey(activeYear, activeMonth);
+  const [combinedBaseYear, combinedBaseMonth] = combinedBaseKey.split("-").map(Number);
+  const combinedNextDate = new Date(combinedBaseYear, combinedBaseMonth, 1);
+  const combinedNextYear = combinedNextDate.getFullYear();
+  const combinedNextMonthNum = combinedNextDate.getMonth() + 1;
+  const combinedNextKey = monthKey(combinedNextYear, combinedNextMonthNum);
+  const combinedBaseMenus = menusByMonth[combinedBaseKey] || {};
+  const combinedNextMenus = menusByMonth[combinedNextKey] || {};
+
+  // 이어보기 모드용 — (오늘 기준 이번달이 아니라) 메뉴가 등록된 마지막 달 + 그다음 달을 실제 날짜 순서로 하나로 합쳐요.
   const combinedEntries = combinedView
     ? [
-        ...Object.keys(menus).map(Number).sort((a, b) => a - b).map((d) => ({ year: activeYear, month: activeMonth, day: d, key: viewKeyFor(activeYear, activeMonth) })),
-        ...Object.keys(nextMenus).map(Number).sort((a, b) => a - b).map((d) => ({ year: nextYear, month: nextMonthNum, day: d, key: nextKey })),
+        ...Object.keys(combinedBaseMenus).map(Number).sort((a, b) => a - b).map((d) => ({ year: combinedBaseYear, month: combinedBaseMonth, day: d, key: combinedBaseKey })),
+        ...Object.keys(combinedNextMenus).map(Number).sort((a, b) => a - b).map((d) => ({ year: combinedNextYear, month: combinedNextMonthNum, day: d, key: combinedNextKey })),
       ]
     : [];
 
-  function viewKeyFor(y, m) {
-    return monthKey(y, m);
-  }
-
-  const updateFieldFor = (key, day, menusOfKey, fieldKey, value) => {
+  function updateFieldFor(key, day, menusOfKey, fieldKey, value) {
     onUpdateMenus(key, { ...menusOfKey, [day]: { ...menusOfKey[day], [fieldKey]: value } });
-  };
+  }
   const toggleHolidayFor = (key, day, menusOfKey) => {
     onUpdateMenus(key, { ...menusOfKey, [day]: { ...menusOfKey[day], isHoliday: !menusOfKey[day].isHoliday } });
   };
@@ -4679,7 +4687,7 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onSendMenuNotification, 
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
         <div style={styles.sectionTitle}>
-          {combinedView ? `${monthLabel(activeYear, activeMonth)} ~ ${monthLabel(nextYear, nextMonthNum)} 메뉴 관리` : `${monthLabel(viewYear, viewMonth)} 메뉴 관리`}
+          {combinedView ? `${monthLabel(combinedBaseYear, combinedBaseMonth)} ~ ${monthLabel(combinedNextYear, combinedNextMonthNum)} 메뉴 관리` : `${monthLabel(viewYear, viewMonth)} 메뉴 관리`}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button
@@ -4724,7 +4732,7 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onSendMenuNotification, 
       {combinedView ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {combinedEntries.map((entry, i) => {
-            const entryMenus = entry.key === viewKeyFor(activeYear, activeMonth) ? menus : nextMenus;
+            const entryMenus = entry.key === combinedBaseKey ? combinedBaseMenus : combinedNextMenus;
             const menu = entryMenus[entry.day];
             if (!menu) return null;
             const isHoliday = !!menu.isHoliday;
@@ -4792,8 +4800,8 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onSendMenuNotification, 
           )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-            <AddDayRow label={`${monthLabel(activeYear, activeMonth)}에 날짜 추가`} onAdd={(d) => onUpdateMenus(viewKeyFor(activeYear, activeMonth), { ...menus, [d]: { main: "", side: "", fruit: "", isHoliday: false, holidayLabel: "" } })} disabledDays={menus} />
-            <AddDayRow label={`${monthLabel(nextYear, nextMonthNum)}에 날짜 추가`} onAdd={(d) => onUpdateMenus(nextKey, { ...nextMenus, [d]: { main: "", side: "", fruit: "", isHoliday: false, holidayLabel: "" } })} disabledDays={nextMenus} />
+            <AddDayRow label={`${monthLabel(combinedBaseYear, combinedBaseMonth)}에 날짜 추가`} onAdd={(d) => onUpdateMenus(combinedBaseKey, { ...combinedBaseMenus, [d]: { main: "", side: "", fruit: "", isHoliday: false, holidayLabel: "" } })} disabledDays={combinedBaseMenus} />
+            <AddDayRow label={`${monthLabel(combinedNextYear, combinedNextMonthNum)}에 날짜 추가`} onAdd={(d) => onUpdateMenus(combinedNextKey, { ...combinedNextMenus, [d]: { main: "", side: "", fruit: "", isHoliday: false, holidayLabel: "" } })} disabledDays={combinedNextMenus} />
           </div>
         </div>
       ) : (
