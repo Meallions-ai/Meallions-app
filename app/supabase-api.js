@@ -599,6 +599,18 @@ export async function updateChildTotalQuota(childId, quota) {
   if (error) throw error;
 }
 
+// 관리자가 실수로 사이클 횟수를 잘못 설정했다가 정정한 경우 등, 학부모가 이미 체크해둔 신청 내역을
+// 통째로 지워서 처음부터 다시 신청받고 싶을 때 씁니다. 신청은 자녀별이 아니라 가정(학부모 계정)
+// 전체가 공유하는 값이라, year_month 목록(보통 이번 달 + 다음 달)을 받아 그 달들만 비워요.
+export async function resetOrdersForMonths(profileId, yearMonths) {
+  const { error } = await supabase
+    .from("orders")
+    .update({ selected_days: [] })
+    .eq("profile_id", profileId)
+    .in("year_month", yearMonths);
+  if (error) throw error;
+}
+
 // ---------------- 관리자 계정 관리 ----------------
 
 // 다른 학부모 계정을 관리자로 승격하거나, 관리자를 다시 학부모로 되돌립니다.
@@ -752,19 +764,4 @@ export async function exportFullBackup() {
     supabase.from("promo_codes").select("*"),
     supabase.from("settings").select("*"),
   ]);
-  const errors = [profiles, children, orders, payments, menus, notices, promoCodes, settings]
-    .map((r) => r.error)
-    .filter(Boolean);
-  if (errors.length) throw errors[0];
-  return {
-    exportedAt: new Date().toISOString(),
-    profiles: profiles.data,
-    children: children.data,
-    orders: orders.data,
-    payments: payments.data,
-    menus: menus.data,
-    notices: notices.data,
-    promoCodes: promoCodes.data,
-    settings: settings.data,
-  };
-}
+  const errors = [profiles, c
