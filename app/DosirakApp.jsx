@@ -1335,6 +1335,21 @@ function AppInner() {
     }
   };
 
+  // 관리자가 사이클 횟수를 잘못 설정했다가 정정하는 등, 학부모가 이미 체크해둔 신청 내역을
+  // 통째로 지우고 처음부터 다시 신청받고 싶을 때 씁니다. (신청은 가정 전체가 공유하는 값이에요.)
+  const handleResetOrders = async (profileId, parentName) => {
+    try {
+      const nextDate = new Date(activeYear, activeMonth, 1);
+      const nextKey = monthKey(nextDate.getFullYear(), nextDate.getMonth() + 1);
+      await api.resetOrdersForMonths(profileId, [activeKey, nextKey]);
+      loadAdminAccounts();
+      logActivity("reset_orders", `신청 내역 초기화: ${parentName}`, { profileId });
+    } catch (e) {
+      setDataError("신청 내역 초기화 중 오류가 발생했어요.");
+      throw e;
+    }
+  };
+
   const loadAllProfilesForRole = async () => {
     try {
       setAllProfilesForRole(await api.getAllProfilesForRoleManagement());
@@ -1743,6 +1758,7 @@ function AppInner() {
         onResetChildCycle={handleResetChildCycle}
         onUpdateServiceStartDate={handleUpdateServiceStartDate}
         onUpdateTotalQuota={handleUpdateTotalQuota}
+        onResetOrders={handleResetOrders}
         pricing={{ monthlyFee: MONTHLY_FEE, taxRate: TAX_RATE, totalQuota: TOTAL_QUOTA }}
         onUpdatePricing={handleUpdatePricing}
         deliveryWeekdays={DELIVERY_WEEKDAYS}
@@ -2745,7 +2761,54 @@ function TotalQuotaField({ child, onUpdateTotalQuota }) {
   );
 }
 
-// 별도 차트 라이브러리 없이도 동작하도록, 순수 SVG로 만든 작은 막대그래프예요.
+// 학부모 가정 전체의 이번 달·다음 달 신청 내역(달력 체크)을 통째로 지워서 처음부터 다시 신청받는 버튼이에요.
+// 신청은 자녀별이 아니라 가정 전체가 공유하는 값이라, 이 버튼은 자녀 카드마다 보이지만 항상 그 가정 전체에 적용돼요.
+// 되돌릴 수 없는 동작이라 실수로 누르지 않도록 두 번 눌러야 확정되게 만들었어요.
+function ResetOrdersButton({ profileId, parentName, onResetOrders }) {
+  const [armed, setArmed] = useState(false);
+  const [status, setStatus] = useState("idle"); // idle | working | done | error
+
+  const handleClick = async () => {
+    if (!armed) {
+      setArmed(true);
+      setTimeout(() => setArmed(false), 4000); // 4초 안에 다시 안 누르면 확인 취소
+      return;
+    }
+    setStatus("working");
+    try {
+      await onResetOrders(profileId, parentName);
+      setStatus("done");
+      setArmed(false);
+      setTimeout(() => setStatus("idle"), 1800);
+    } catch (e) {
+      setStatus("error");
+      setArmed(false);
+      setTimeout(() => setStatus("idle"), 2500);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <button
+        onClick={handleClick}
+        disabled={status === "working"}
+        style={{ ...styles.revokeBtn, width: "100%", color: armed ? "#fff" : undefined, background: armed ? "#C0392B" : undefined }}
+      >
+        {status === "working"
+          ? "초기화 중..."
+          : status === "done"
+          ? "초기화됨 ✓"
+          : status === "error"
+          ? "초기화 실패 ✕"
+          : armed
+          ? `정말로 ${parentName} 가정 신청을 전부 지울까요? 다시 눌러 확정`
+          : `${parentName} 가정 신청 내역 초기화 (다시 신청받기)`}
+      </button>
+    </div>
+  );
+}
+
+
 function MiniBarChart({ data, valueKey, labelKey, color, formatValue }) {
   const max = Math.max(1, ...data.map((d) => d[valueKey]));
   const barWidth = 32;
@@ -2779,7 +2842,7 @@ function MiniBarChart({ data, valueKey, labelKey, color, formatValue }) {
   );
 }
 
-function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onResetChildCycle, onUpdateServiceStartDate, onUpdateTotalQuota, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError }) {
+function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onResetChildCycle, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError }) {
   const [tab, setTab] = useState("overview");
   const [overviewView, setOverviewView] = useState("calendar"); // calendar | daily | family — 신청 현황 보기 방식
   const [paymentFilter, setPaymentFilter] = useState("all"); // all | partial (일부만 결제한 가정)
@@ -3288,6 +3351,7 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
                   <button onClick={() => onResetChildCycle(child.id)} style={styles.revokeBtn}>
                     사이클 초기화 (0으로 리셋)
                   </button>
+                  <ResetOrdersButton profileId={parent.id} parentName={parent.parentName} onResetOrders={onResetOrders} />
                   <ServiceStartDateField child={child} onUpdateServiceStartDate={onUpdateServiceStartDate} />
                   <TotalQuotaField child={child} onUpdateTotalQuota={onUpdateTotalQuota} />
                 </div>
@@ -3606,12 +3670,14 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
   const viewMenus = menusByMonth[viewKey] || {};
   const availableDays = useMemo(() => Object.keys(viewMenus).filter((d) => !viewMenus[d].isHoliday).map(Number).sort((a, b) => a - b), [viewMenus]);
   const [selected, setSelected] = useState(new Set((account.ordersByMonth && account.ordersByMonth[viewKey]) || availableDays));
-  // 이번 달 ↔ 다음 달 전환 시, 그 달에 저장된 신청 내역(없으면 배송일 전체)으로 다시 맞춰줘요.
+  // 이번 달 ↔ 다음 달 전환 시, 그리고 (관리자의 신청 초기화 등으로) 백그라운드에서 저장된 값이 바뀌었을 때도
+  // 그 달에 저장된 신청 내역(없으면 배송일 전체)으로 다시 맞춰줘요.
+  const savedForView = account.ordersByMonth && account.ordersByMonth[viewKey];
+  const savedForViewKey = savedForView ? savedForView.join(",") : "";
   useEffect(() => {
-    const saved = account.ordersByMonth && account.ordersByMonth[viewKey];
-    setSelected(new Set(saved || availableDays));
+    setSelected(new Set(savedForView || availableDays));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewKey]);
+  }, [viewKey, savedForViewKey]);
   const [detailDay, setDetailDay] = useState(null);
   // 마감 48시간 이내로 다가온 신청/스킵 건이 있으면 알려줘요. (실제 오늘 기준 이번 달 마감만 알려줘요)
   const currentMenus = menusByMonth[activeKey] || {};
