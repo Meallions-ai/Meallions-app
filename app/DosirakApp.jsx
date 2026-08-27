@@ -111,8 +111,8 @@ const TRANSLATIONS = {
     "order.usedTitle": "이번 달 사용 횟수",
     "order.remaining": "{n}회 남음",
     "order.over": "{n}회 초과",
-    "order.selected": "선택됨",
-    "order.unselected": "미선택",
+    "order.selected": "신청",
+    "order.unselected": "스킵",
     "order.deliveryListTitle": "배송일별 메뉴 · 신청 상태",
     "order.apply": "신청",
     "order.locked": "🔒 마감",
@@ -122,8 +122,8 @@ const TRANSLATIONS = {
     "order.payDone": "결제완료 ✓",
     "order.fruit": "과일",
 
-    "detail.applyBtn": "이 날짜 신청하기",
-    "detail.cancelBtn": "이 날짜 스킵하기",
+    "detail.applyBtn": "신청",
+    "detail.cancelBtn": "스킵",
     "detail.lockedNotice": "🔒 이 날짜는 변경 마감(전주 금요일)이 지나 신청 상태를 바꿀 수 없어요.",
     "detail.holidayNoDelivery": "이 날은 배송이 없어요.",
     "detail.serviceNotStartedNotice": "🔒 아직 서비스 시작일 이전이라 신청·스킵을 변경할 수 없어요.",
@@ -344,8 +344,8 @@ const TRANSLATIONS = {
     "order.usedTitle": "Used this month",
     "order.remaining": "{n} left",
     "order.over": "{n} over",
-    "order.selected": "Selected",
-    "order.unselected": "Not selected",
+    "order.selected": "Order",
+    "order.unselected": "Skip",
     "order.deliveryListTitle": "Menu & Order Status by Delivery Day",
     "order.apply": "Ordered",
     "order.locked": "🔒 Closed",
@@ -355,8 +355,8 @@ const TRANSLATIONS = {
     "order.fruit": "Fruit",
     "order.payDone": "Payment done ✓",
 
-    "detail.applyBtn": "Order this day",
-    "detail.cancelBtn": "Skip this day",
+    "detail.applyBtn": "Order",
+    "detail.cancelBtn": "Skip",
     "detail.lockedNotice": "🔒 The change deadline (the Friday before) has passed, so this day can't be changed.",
     "detail.holidayNoDelivery": "There is no delivery on this day.",
     "detail.serviceNotStartedNotice": "🔒 This is before your service start date, so it can't be ordered or changed.",
@@ -577,8 +577,8 @@ const TRANSLATIONS = {
     "order.cycleHint": "Vous serez averti(e) tous les 12 commandes",
     "order.remaining": "{n} restant(s)",
     "order.over": "{n} en trop",
-    "order.selected": "Sélectionné",
-    "order.unselected": "Non sélectionné",
+    "order.selected": "Commandé",
+    "order.unselected": "Sauté",
     "order.deliveryListTitle": "Menu et statut par jour de livraison",
     "order.apply": "Commandé",
     "order.locked": "🔒 Fermé",
@@ -588,8 +588,8 @@ const TRANSLATIONS = {
     "order.fruit": "Fruit",
 
     "order.payDone": "Paiement effectué ✓",
-    "detail.applyBtn": "Commander ce jour",
-    "detail.cancelBtn": "Ignorer ce jour",
+    "detail.applyBtn": "Commander",
+    "detail.cancelBtn": "Ignorer",
     "detail.lockedNotice": "🔒 La date limite de modification (vendredi précédent) est passée, ce jour ne peut plus être modifié.",
     "detail.holidayNoDelivery": "Il n'y a pas de livraison ce jour-là.",
     "detail.serviceNotStartedNotice": "🔒 C'est avant votre date de début de service, donc cela ne peut pas être commandé ou modifié.",
@@ -810,8 +810,8 @@ const TRANSLATIONS = {
     "order.cycleHint": "每满12次申请会自动提醒付款",
     "order.remaining": "剩余 {n} 次",
     "order.over": "超出 {n} 次",
-    "order.selected": "已选择",
-    "order.unselected": "未选择",
+    "order.selected": "申请",
+    "order.unselected": "跳过",
     "order.deliveryListTitle": "配送日菜单及申请状态",
     "order.apply": "已申请",
     "order.locked": "🔒 已截止",
@@ -820,8 +820,8 @@ const TRANSLATIONS = {
     "order.payWaiting": "等待确认",
     "order.fruit": "水果",
 
-    "detail.applyBtn": "申请该日期",
-    "detail.cancelBtn": "跳过该日期",
+    "detail.applyBtn": "申请",
+    "detail.cancelBtn": "跳过",
     "order.payDone": "支付完成 ✓",
     "detail.lockedNotice": "🔒 该日期已过更改截止时间（前一周周五），无法再更改申请状态。",
     "detail.holidayNoDelivery": "当天不配送。",
@@ -4256,6 +4256,11 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
         </div>
       )}
 
+      <div style={styles.legendRow}>
+        <span style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#4F7A44" }} />{t("order.selected")}</span>
+        <span style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#F2F6F2", border: "1px solid #D8E0D8" }} />{t("order.unselected")}</span>
+      </div>
+
       <div style={styles.calendarCard}>
         <div style={styles.weekRow}>
           {WEEKDAYS.map((w, i) => (
@@ -4297,10 +4302,6 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
         ))}
       </div>
 
-      <div style={styles.legendRow}>
-        <span style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#4F7A44" }} />{t("order.selected")}</span>
-        <span style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#F2F6F2", border: "1px solid #D8E0D8" }} />{t("order.unselected")}</span>
-      </div>
       <p style={{ ...styles.helperText, textAlign: "center" }}>{t("order.tapForMenu")}</p>
     </div>
   );
@@ -4495,16 +4496,32 @@ function DayDetailSheet({ day, monthLabel: mLabel, menu, isSelected, locked, loc
                 {lockedReason === "serviceNotStarted" ? t("detail.serviceNotStartedNotice") : t("detail.lockedNotice")}
               </div>
             ) : (
-              <button
-                onClick={() => { onToggle(); onClose(); }}
-                style={{
-                  ...styles.sheetBtn,
-                  background: isSelected ? "#FCE4E1" : "#4F7A44",
-                  color: isSelected ? "#C0392B" : "#fff",
-                }}
-              >
-                {isSelected ? t("detail.cancelBtn") : t("detail.applyBtn")}
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button
+                  onClick={() => { if (!isSelected) { onToggle(); } onClose(); }}
+                  style={{
+                    ...styles.sheetBtn,
+                    flex: 1,
+                    background: isSelected ? "#4F7A44" : "#F2F6F2",
+                    color: isSelected ? "#fff" : "#7C8A7C",
+                    fontWeight: isSelected ? 800 : 600,
+                  }}
+                >
+                  {isSelected ? `✓ ${t("detail.applyBtn")}` : t("detail.applyBtn")}
+                </button>
+                <button
+                  onClick={() => { if (isSelected) { onToggle(); } onClose(); }}
+                  style={{
+                    ...styles.sheetBtn,
+                    flex: 1,
+                    background: !isSelected ? "#FCE4E1" : "#F2F6F2",
+                    color: !isSelected ? "#C0392B" : "#7C8A7C",
+                    fontWeight: !isSelected ? 800 : 600,
+                  }}
+                >
+                  {!isSelected ? `✓ ${t("detail.cancelBtn")}` : t("detail.cancelBtn")}
+                </button>
+              </div>
             )}
           </>
         )}
