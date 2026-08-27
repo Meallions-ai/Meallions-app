@@ -523,6 +523,20 @@ export async function deleteMenuDay(yearMonth, day) {
   if (error) throw error;
 }
 
+// 지난 달처럼 더 이상 필요 없는 메뉴판을 통째로 정리할 때 씁니다 (그 달의 모든 날짜를 한 번에 삭제).
+export async function deleteMenuMonth(yearMonth) {
+  const { error } = await supabase.from("menus").delete().eq("year_month", yearMonth);
+  if (error) throw error;
+}
+
+// 지금 화면에 아직 안 불러와진(과거) 달까지 포함해서, 메뉴가 하나라도 등록된 모든 달 목록을 가져옵니다.
+// (관리자가 "지난 달 메뉴 정리" 화면에서 정리할 대상 달을 찾을 때 사용해요.)
+export async function getMenuMonthKeys() {
+  const { data, error } = await supabase.from("menus").select("year_month");
+  if (error) throw error;
+  return [...new Set((data || []).map((row) => row.year_month))].sort();
+}
+
 export async function getNotices() {
   const { data, error } = await supabase.from("notices").select("*").order("created_at", { ascending: false });
   if (error) throw error;
