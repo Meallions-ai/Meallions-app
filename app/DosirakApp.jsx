@@ -122,6 +122,7 @@ const TRANSLATIONS = {
     "order.payBtn": "결제하기",
     "order.payWaiting": "확인 대기중",
     "order.payDone": "결제완료 ✓",
+    "payment.alreadyPaidNotice": "다음 사이클 결제를 이미 하셨어요. 앞으로 {remaining}회 더 신청하시면 그다음 결제 대상이 돼요. 지금은 추가로 결제하지 않으셔도 돼요.",
     "order.fruit": "과일",
 
     "detail.applyBtn": "신청",
@@ -358,6 +359,7 @@ const TRANSLATIONS = {
     "order.payWaiting": "Awaiting confirmation",
     "order.fruit": "Fruit",
     "order.payDone": "Payment done ✓",
+    "payment.alreadyPaidNotice": "You've already paid for the next cycle. After {remaining} more orders, you'll be due for the following payment — no need to pay again for now.",
 
     "detail.applyBtn": "Order",
     "detail.cancelBtn": "Skip",
@@ -594,6 +596,7 @@ const TRANSLATIONS = {
     "order.fruit": "Fruit",
 
     "order.payDone": "Paiement effectué ✓",
+    "payment.alreadyPaidNotice": "Vous avez déjà payé pour le prochain cycle. Après {remaining} commandes supplémentaires, vous devrez payer à nouveau — pas besoin de repayer pour l'instant.",
     "detail.applyBtn": "Commander",
     "detail.cancelBtn": "Ignorer",
     "detail.lockedNotice": "🔒 La date limite de modification (vendredi précédent) est passée, ce jour ne peut plus être modifié.",
@@ -831,6 +834,7 @@ const TRANSLATIONS = {
     "detail.applyBtn": "申请",
     "detail.cancelBtn": "跳过",
     "order.payDone": "支付完成 ✓",
+    "payment.alreadyPaidNotice": "您已经支付了下一周期的费用。再申请{remaining}次后才需要下次付款——现在不用再付款了。",
     "detail.lockedNotice": "🔒 该日期已过更改截止时间（前一周周五），无法再更改申请状态。",
     "detail.holidayNoDelivery": "当天不配送。",
     "detail.serviceNotStartedNotice": "🔒 尚未到服务开始日期，无法申请或更改。",
@@ -1942,7 +1946,6 @@ function AppInner() {
         onCreatePromoCode={handleCreatePromoCode}
         onTogglePromoCode={handleTogglePromoCode}
         onDeletePromoCode={handleDeletePromoCode}
-        onResetChildCycle={handleResetChildCycle}
         onUpdateServiceStartDate={handleUpdateServiceStartDate}
         onUpdateTotalQuota={handleUpdateTotalQuota}
         onResetOrders={handleResetOrders}
@@ -3030,7 +3033,7 @@ function MiniBarChart({ data, valueKey, labelKey, color, formatValue }) {
   );
 }
 
-function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, onDeleteMenuMonth, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onResetChildCycle, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError }) {
+function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, onDeleteMenuMonth, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError }) {
   const [tab, setTab] = useState("overview");
   const [overviewView, setOverviewView] = useState("calendar"); // calendar | daily | family — 신청 현황 보기 방식
   const [paymentFilter, setPaymentFilter] = useState("all"); // all | partial (일부만 결제한 가정)
@@ -3536,9 +3539,6 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
                       승인 취소
                     </button>
                   )}
-                  <button onClick={() => onResetChildCycle(child.id)} style={styles.revokeBtn}>
-                    사이클 초기화 (0으로 리셋)
-                  </button>
                   <ResetOrdersButton profileId={parent.id} parentName={parent.parentName} onResetOrders={onResetOrders} />
                   <ServiceStartDateField child={child} onUpdateServiceStartDate={onUpdateServiceStartDate} />
                   <TotalQuotaField child={child} onUpdateTotalQuota={onUpdateTotalQuota} />
@@ -4486,6 +4486,11 @@ function PaymentView({ children, selectedChildIds, onToggleChild, onCheckout, t 
                 {!alreadyHandled && (
                   <div style={{ fontSize: 11.5, color: isDue || eligibleEarly ? "#4F7A44" : "#9AA39A", marginTop: 2, fontWeight: isDue || eligibleEarly ? 700 : 500 }}>
                     {isDue ? t("payment.dueNow") : eligibleEarly ? t("payment.earlyPayAvailable", { used: cycleUsed, total: childQuota }) : t("payment.cycleProgress", { used: cycleUsed, total: childQuota })}
+                  </div>
+                )}
+                {alreadyHandled && (
+                  <div style={{ fontSize: 11, color: "#4F7A44", marginTop: 3, lineHeight: 1.4 }}>
+                    {t("payment.alreadyPaidNotice", { remaining })}
                   </div>
                 )}
               </div>
