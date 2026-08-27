@@ -156,6 +156,32 @@ const TRANSLATIONS = {
     "payment.errorTitle": "결제 제출에 실패했어요",
     "payment.errorMsg": "인터넷 연결을 확인하고 다시 시도해주세요.",
     "payment.retry": "다시 시도",
+    "weekday.0": "일",
+    "weekday.1": "월",
+    "weekday.2": "화",
+    "weekday.3": "수",
+    "weekday.4": "목",
+    "weekday.5": "금",
+    "weekday.6": "토",
+    "order.nextCycleBadge": "· 다음 사이클 미리 신청",
+    "order.cycleStatusTitle": "자녀별 사이클 현황",
+    "order.used": "사용 {used}회",
+    "order.skipped": "스킵 {skipped}회",
+    "order.remaining": "남음 {remaining}회",
+    "order.totalCount": "(총 {total}회)",
+    "order.menuNotReady": "{month} 메뉴가 아직 준비되지 않았어요. 관리자가 메뉴를 등록하면 여기서 신청할 수 있어요.",
+    "order.quotaBlocked": "{name}(이)가 이번 사이클 신청 횟수를 다 채웠어요. 결제를 완료하면 계속 신청할 수 있어요.",
+    "login.rememberMe": "아이디/비밀번호 저장",
+    "resetPw.title": "새 비밀번호 설정",
+    "resetPw.errorTooShort": "비밀번호는 6자 이상이어야 해요.",
+    "resetPw.errorMismatch": "비밀번호가 서로 일치하지 않아요.",
+    "resetPw.errorGeneric": "비밀번호 변경 중 오류가 발생했어요. 다시 시도해주세요.",
+    "resetPw.done": "비밀번호가 바뀌었어요. 이제 로그인 화면으로 돌아가서 새 비밀번호로 로그인해주세요.",
+    "resetPw.backToLogin": "로그인 화면으로",
+    "resetPw.newPassword": "새 비밀번호",
+    "resetPw.confirmPassword": "새 비밀번호 확인",
+    "resetPw.saving": "저장 중...",
+    "resetPw.submit": "비밀번호 변경",
     "review.title": "이용 후기를 남겨주세요",
     "review.serviceLabel": "서비스",
     "review.qualityLabel": "퀄리티",
@@ -365,6 +391,32 @@ const TRANSLATIONS = {
     "payment.errorTitle": "Payment submission failed",
     "payment.errorMsg": "Please check your connection and try again.",
     "payment.retry": "Retry",
+    "weekday.0": "Sun",
+    "weekday.1": "Mon",
+    "weekday.2": "Tue",
+    "weekday.3": "Wed",
+    "weekday.4": "Thu",
+    "weekday.5": "Fri",
+    "weekday.6": "Sat",
+    "order.nextCycleBadge": "· Pre-ordering next cycle",
+    "order.cycleStatusTitle": "Cycle status by child",
+    "order.used": "Used {used}",
+    "order.skipped": "Skipped {skipped}",
+    "order.remaining": "Remaining {remaining}",
+    "order.totalCount": "(of {total})",
+    "order.menuNotReady": "The {month} menu isn't ready yet. Once the admin adds it, you can order here.",
+    "order.quotaBlocked": "{name} has used up this cycle's order count. Once payment is completed, you can order again.",
+    "login.rememberMe": "Remember ID/password",
+    "resetPw.title": "Set a new password",
+    "resetPw.errorTooShort": "Password must be at least 6 characters.",
+    "resetPw.errorMismatch": "Passwords don't match.",
+    "resetPw.errorGeneric": "Something went wrong changing your password. Please try again.",
+    "resetPw.done": "Your password has been changed. Please return to the login screen and sign in with your new password.",
+    "resetPw.backToLogin": "Back to login",
+    "resetPw.newPassword": "New password",
+    "resetPw.confirmPassword": "Confirm new password",
+    "resetPw.saving": "Saving...",
+    "resetPw.submit": "Change password",
     "review.title": "Please leave a review",
     "review.serviceLabel": "Service",
     "review.qualityLabel": "Quality",
@@ -573,6 +625,32 @@ const TRANSLATIONS = {
     "payment.errorTitle": "Échec de la soumission du paiement",
     "payment.errorMsg": "Veuillez vérifier votre connexion et réessayer.",
     "payment.retry": "Réessayer",
+    "weekday.0": "Dim",
+    "weekday.1": "Lun",
+    "weekday.2": "Mar",
+    "weekday.3": "Mer",
+    "weekday.4": "Jeu",
+    "weekday.5": "Ven",
+    "weekday.6": "Sam",
+    "order.nextCycleBadge": "· Précommande du prochain cycle",
+    "order.cycleStatusTitle": "Statut du cycle par enfant",
+    "order.used": "Utilisé {used}",
+    "order.skipped": "Ignoré {skipped}",
+    "order.remaining": "Restant {remaining}",
+    "order.totalCount": "(sur {total})",
+    "order.menuNotReady": "Le menu de {month} n'est pas encore prêt. Une fois ajouté par l'administrateur, vous pourrez commander ici.",
+    "order.quotaBlocked": "{name} a épuisé le nombre de commandes de ce cycle. Une fois le paiement effectué, vous pourrez continuer à commander.",
+    "login.rememberMe": "Enregistrer l'identifiant/mot de passe",
+    "resetPw.title": "Définir un nouveau mot de passe",
+    "resetPw.errorTooShort": "Le mot de passe doit contenir au moins 6 caractères.",
+    "resetPw.errorMismatch": "Les mots de passe ne correspondent pas.",
+    "resetPw.errorGeneric": "Une erreur est survenue lors du changement de mot de passe. Veuillez réessayer.",
+    "resetPw.done": "Votre mot de passe a été changé. Retournez à l'écran de connexion et connectez-vous avec votre nouveau mot de passe.",
+    "resetPw.backToLogin": "Retour à la connexion",
+    "resetPw.newPassword": "Nouveau mot de passe",
+    "resetPw.confirmPassword": "Confirmer le nouveau mot de passe",
+    "resetPw.saving": "Enregistrement...",
+    "resetPw.submit": "Changer le mot de passe",
     "review.title": "Laissez-nous un avis",
     "review.serviceLabel": "Service",
     "review.qualityLabel": "Qualité",
@@ -780,6 +858,32 @@ const TRANSLATIONS = {
     "payment.errorTitle": "支付提交失败",
     "payment.errorMsg": "请检查网络连接后重试。",
     "payment.retry": "重试",
+    "weekday.0": "周日",
+    "weekday.1": "周一",
+    "weekday.2": "周二",
+    "weekday.3": "周三",
+    "weekday.4": "周四",
+    "weekday.5": "周五",
+    "weekday.6": "周六",
+    "order.nextCycleBadge": "· 提前预订下一周期",
+    "order.cycleStatusTitle": "各孩子周期情况",
+    "order.used": "已用 {used} 次",
+    "order.skipped": "跳过 {skipped} 次",
+    "order.remaining": "剩余 {remaining} 次",
+    "order.totalCount": "(共 {total} 次)",
+    "order.menuNotReady": "{month}的菜单还没准备好。管理员添加后就可以在这里申请了。",
+    "order.quotaBlocked": "{name}本周期的申请次数已用完。完成付款后即可继续申请。",
+    "login.rememberMe": "记住账号/密码",
+    "resetPw.title": "设置新密码",
+    "resetPw.errorTooShort": "密码至少需要6位。",
+    "resetPw.errorMismatch": "两次输入的密码不一致。",
+    "resetPw.errorGeneric": "修改密码时出错，请重试。",
+    "resetPw.done": "密码已修改。请返回登录页面，使用新密码登录。",
+    "resetPw.backToLogin": "返回登录",
+    "resetPw.newPassword": "新密码",
+    "resetPw.confirmPassword": "确认新密码",
+    "resetPw.saving": "保存中...",
+    "resetPw.submit": "修改密码",
     "review.title": "请留下您的评价",
     "review.serviceLabel": "服务",
     "review.qualityLabel": "品质",
@@ -971,6 +1075,18 @@ function getActiveYearMonth() {
 
 function monthLabel(year, month) {
   return `${year}년 ${month}월`;
+}
+
+// 학부모 화면(신청 탭, 메뉴판 탭)에서 언어 설정에 맞게 "년/월" 표기를 바꿔줘요.
+// 관리자 화면은 계속 monthLabel()(한국어 고정)을 그대로 써요.
+function monthLabelLocalized(year, month, language) {
+  const localeMap = { ko: "ko-KR", en: "en-US", fr: "fr-FR", zh: "zh-CN" };
+  const locale = localeMap[language] || "ko-KR";
+  try {
+    return new Intl.DateTimeFormat(locale, { year: "numeric", month: "long" }).format(new Date(year, month - 1, 1));
+  } catch (e) {
+    return monthLabel(year, month);
+  }
 }
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -1751,6 +1867,7 @@ function AppInner() {
           await api.updatePasswordAfterReset(newPassword);
           setPasswordRecoveryMode(false);
         }}
+        t={t}
       />
     );
   }
@@ -1857,6 +1974,7 @@ function AppInner() {
       onDismissDataError={() => setDataError("")}
       canInstall={!!installPrompt}
       onInstallClick={handleInstallClick}
+      language={language}
       t={t}
     />
   );
@@ -2004,7 +2122,7 @@ function LoginScreen({ error, onLogin, onGoSignup, onRequestPasswordReset, langu
               {rememberMe && <Check size={12} color="#fff" />}
             </div>
             <span style={{ fontSize: 13, color: "#5C6A5C" }} onClick={() => setRememberMe((v) => !v)}>
-              아이디/비밀번호 저장
+              {t("login.rememberMe")}
             </span>
           </label>
 
@@ -2031,7 +2149,7 @@ function LoginScreen({ error, onLogin, onGoSignup, onRequestPasswordReset, langu
   );
 }
 
-function ResetPasswordScreen({ onSubmit }) {
+function ResetPasswordScreen({ onSubmit, t }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -2041,11 +2159,11 @@ function ResetPasswordScreen({ onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password.length < 6) {
-      setError("비밀번호는 6자 이상이어야 해요.");
+      setError(t("resetPw.errorTooShort"));
       return;
     }
     if (password !== confirm) {
-      setError("비밀번호가 서로 일치하지 않아요.");
+      setError(t("resetPw.errorMismatch"));
       return;
     }
     setError("");
@@ -2054,7 +2172,7 @@ function ResetPasswordScreen({ onSubmit }) {
       await onSubmit(password);
       setDone(true);
     } catch (e) {
-      setError("비밀번호 변경 중 오류가 발생했어요. 다시 시도해주세요.");
+      setError(t("resetPw.errorGeneric"));
     }
     setSubmitting(false);
   };
@@ -2064,22 +2182,22 @@ function ResetPasswordScreen({ onSubmit }) {
       <style>{`* { box-sizing: border-box; } body { margin: 0; }`}</style>
       <div style={styles.loginWrap}>
         <img src={LOGO_SRC} alt="MEALLIONS" style={styles.logoImgLarge} />
-        <div style={styles.loginTitle}>새 비밀번호 설정</div>
+        <div style={styles.loginTitle}>{t("resetPw.title")}</div>
         {done ? (
           <div style={{ width: "100%", marginTop: 24 }}>
-            <div style={styles.loginError2}>비밀번호가 바뀌었어요. 이제 로그인 화면으로 돌아가서 새 비밀번호로 로그인해주세요.</div>
+            <div style={styles.loginError2}>{t("resetPw.done")}</div>
             <button onClick={() => window.location.reload()} style={{ ...styles.loginBtn, marginTop: 16 }}>
-              로그인 화면으로
+              {t("resetPw.backToLogin")}
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={{ width: "100%", marginTop: 24 }}>
             <div style={styles.inputGroup}>
-              <label style={styles.inputLabel}>새 비밀번호</label>
+              <label style={styles.inputLabel}>{t("resetPw.newPassword")}</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={styles.input} />
             </div>
             <div style={styles.inputGroup}>
-              <label style={styles.inputLabel}>새 비밀번호 확인</label>
+              <label style={styles.inputLabel}>{t("resetPw.confirmPassword")}</label>
               <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} style={styles.input} />
             </div>
             {error && (
@@ -2088,7 +2206,7 @@ function ResetPasswordScreen({ onSubmit }) {
               </div>
             )}
             <button type="submit" disabled={submitting} style={{ ...styles.loginBtn, opacity: submitting ? 0.6 : 1 }}>
-              {submitting ? "저장 중..." : "비밀번호 변경"}
+              {submitting ? t("resetPw.saving") : t("resetPw.submit")}
             </button>
           </form>
         )}
@@ -3710,7 +3828,7 @@ function ProfileView({ account, onUpdateChild, onUpdateAddress, onUpdateRecovery
   );
 }
 
-function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeYear, activeMonth, activeKey, activeLabel, onUpdateChild, onUpdateOrder, onUpdatePayment, onCancelPayment, onDismissPaymentNotice, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, onLogout, dataError, onDismissDataError, canInstall, onInstallClick, onCopyPreviousMonth, t }) {
+function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeYear, activeMonth, activeKey, activeLabel, onUpdateChild, onUpdateOrder, onUpdatePayment, onCancelPayment, onDismissPaymentNotice, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, onLogout, dataError, onDismissDataError, canInstall, onInstallClick, onCopyPreviousMonth, language, t }) {
   const [tab, setTab] = useState("order");
   // 신청 탭은 사이클이 끝나기 1주일 전부터 다음 달 신청도 미리 받을 수 있도록, 이번 달/다음 달을 전환할 수 있어요.
   const [monthOffset, setMonthOffset] = useState(0); // 0 = 이번달, 1 = 다음달
@@ -3718,7 +3836,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
   const viewYear = viewDate.getFullYear();
   const viewMonth = viewDate.getMonth() + 1;
   const viewKey = monthKey(viewYear, viewMonth);
-  const viewLabel = monthLabel(viewYear, viewMonth);
+  const viewLabel = monthLabelLocalized(viewYear, viewMonth, language);
   const viewMenus = menusByMonth[viewKey] || {};
   const availableDays = useMemo(() => Object.keys(viewMenus).filter((d) => !viewMenus[d].isHoliday).map(Number).sort((a, b) => a - b), [viewMenus]);
   const [selected, setSelected] = useState(new Set((account.ordersByMonth && account.ordersByMonth[viewKey]) || availableDays));
@@ -3821,7 +3939,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
         (c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleUsed || 0) >= getChildQuota(c)
       );
       if (blockedChild) {
-        setQuotaBlockedMsg(`${blockedChild.name}(이)가 이번 사이클 신청 횟수를 다 채웠어요. 결제를 완료하면 계속 신청할 수 있어요.`);
+        setQuotaBlockedMsg(t("order.quotaBlocked", { name: blockedChild.name }));
         setTimeout(() => setQuotaBlockedMsg(""), 3500);
         return;
       }
@@ -3865,7 +3983,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
         <div style={styles.headerTop}>
           <img src={LOGO_SRC} alt="MEALLIONS" style={styles.logoImgHeader} />
           <div style={{ flex: 1 }}>
-            <div style={styles.brandSub}>{activeLabel} · {account.parentName}</div>
+            <div style={styles.brandSub}>{monthLabelLocalized(activeYear, activeMonth, language)} · {account.parentName}</div>
           </div>
           {canInstall && (
             <button onClick={onInstallClick} style={styles.installBtn} title={t("common.install")}>
@@ -3980,7 +4098,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
           />
         )}
         {tab === "menuBoard" && (
-          <MenuBoardView menusByMonth={menusByMonth} activeYear={activeYear} activeMonth={activeMonth} t={t} />
+          <MenuBoardView menusByMonth={menusByMonth} activeYear={activeYear} activeMonth={activeMonth} language={language} t={t} />
         )}
         {tab === "payment" && (
           <PaymentView
@@ -4071,7 +4189,7 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
             <ChevronLeft size={18} />
           </button>
           <div style={{ fontSize: 15, fontWeight: 800, color: "#33402F" }}>
-            {viewMonthLabel} {monthOffset === 1 && <span style={{ fontSize: 11.5, fontWeight: 700, color: "#4F7A44", marginLeft: 4 }}>· 다음 사이클 미리 신청</span>}
+            {viewMonthLabel} {monthOffset === 1 && <span style={{ fontSize: 11.5, fontWeight: 700, color: "#4F7A44", marginLeft: 4 }}>{t("order.nextCycleBadge")}</span>}
           </div>
           <button onClick={onNextMonth} disabled={monthOffset === 1} style={{ ...styles.iconBtn, opacity: monthOffset === 1 ? 0.35 : 1 }}>
             <ChevronRight size={18} />
@@ -4093,7 +4211,7 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
 
       {familyChildren && familyChildren.length > 0 && (
         <div style={{ ...styles.profileCard, marginTop: 10, marginBottom: 4 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#7C8A7C", marginBottom: 8 }}>자녀별 사이클 현황</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#7C8A7C", marginBottom: 8 }}>{t("order.cycleStatusTitle")}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {familyChildren.map((child) => {
               const quota = getChildQuota(child);
@@ -4104,12 +4222,12 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
                 <div key={child.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#33402F" }}>{child.name}</div>
                   <div style={{ fontSize: 12, color: "#7C8A7C", display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <span>사용 {used}회</span>
+                    <span>{t("order.used", { used })}</span>
                     <span>·</span>
-                    <span>스킵 {skipped}회</span>
+                    <span>{t("order.skipped", { skipped })}</span>
                     <span>·</span>
-                    <span style={{ fontWeight: 700, color: "#4F7A44" }}>남음 {remaining}회</span>
-                    <span style={{ color: "#C9CFC9" }}>(총 {quota}회)</span>
+                    <span style={{ fontWeight: 700, color: "#4F7A44" }}>{t("order.remaining", { remaining })}</span>
+                    <span style={{ color: "#C9CFC9" }}>{t("order.totalCount", { total: quota })}</span>
                   </div>
                 </div>
               );
@@ -4128,7 +4246,7 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
 
       {availableDays.length === 0 && (
         <div style={{ fontSize: 13, color: "#9AA39A", padding: "16px 2px", textAlign: "center", background: "#F7F9F6", borderRadius: 12, marginBottom: 10 }}>
-          {viewMonthLabel} 메뉴가 아직 준비되지 않았어요. 관리자가 메뉴를 등록하면 여기서 신청할 수 있어요.
+          {t("order.menuNotReady", { month: viewMonthLabel })}
         </div>
       )}
 
@@ -4142,7 +4260,7 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
         <div style={styles.weekRow}>
           {WEEKDAYS.map((w, i) => (
             <div key={w} style={{ ...styles.weekCell, color: i === 0 ? "#D97757" : i === 6 ? "#3E6BC7" : "#9AA39A" }}>
-              {w}
+              {t(`weekday.${i}`)}
             </div>
           ))}
         </div>
@@ -4189,7 +4307,7 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
 }
 
 // 메뉴판 — 이번 달 메뉴를 메인·사이드·과일 3가지로 한눈에 보기 쉽게 보여주는 전용 화면
-function MenuBoardView({ menusByMonth, activeYear, activeMonth, t }) {
+function MenuBoardView({ menusByMonth, activeYear, activeMonth, language, t }) {
   const [offset, setOffset] = useState(0); // 0=이번달, 1=다음달
   const viewDate = new Date(activeYear, activeMonth - 1 + offset, 1);
   const viewYear = viewDate.getFullYear();
@@ -4212,7 +4330,7 @@ function MenuBoardView({ menusByMonth, activeYear, activeMonth, t }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <div style={styles.sectionTitle}>{monthLabel(viewYear, viewMonth)} {t("menuBoard.title")}</div>
+        <div style={styles.sectionTitle}>{monthLabelLocalized(viewYear, viewMonth, language)} {t("menuBoard.title")}</div>
         <div style={{ display: "flex", gap: 4 }}>
           <button onClick={() => setOffset((o) => Math.max(0, o - 1))} disabled={offset === 0} style={{ ...styles.iconBtn, opacity: offset === 0 ? 0.4 : 1 }}>
             <ChevronLeft size={16} />
@@ -4234,7 +4352,7 @@ function MenuBoardView({ menusByMonth, activeYear, activeMonth, t }) {
                 return (
                   <div key={wd} style={styles.menuBoardDayCol}>
                     <div style={styles.menuBoardDayHeader}>
-                      <span style={{ fontSize: 13, color: "#9AA39A" }}>{WEEKDAYS[wd]}</span>
+                      <span style={{ fontSize: 13, color: "#9AA39A" }}>{t(`weekday.${wd}`)}</span>
                       {day && <span style={{ fontSize: 18, fontWeight: 800, color: "#33402F", marginLeft: 4 }}>{day}</span>}
                     </div>
                     {menu?.isHoliday ? (
