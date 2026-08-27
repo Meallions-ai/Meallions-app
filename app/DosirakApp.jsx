@@ -4642,8 +4642,9 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onDeleteMenuMonth, onSen
   useEffect(() => {
     api.getMenuMonthKeys().then(setAllMenuMonths).catch(() => setAllMenuMonths([]));
   }, []);
-  const activeKeyNow = monthKey(activeYear, activeMonth);
-  const pastMonths = (allMenuMonths || []).filter((k) => k < activeKeyNow);
+  // "오늘 기준 이전 달"로만 제한하면, 아직 이번 달이 다 안 지나서도 정리하고 싶은 경우(예: 8월 남았지만 사이클은 이미 9월로 넘어간 경우)를
+  // 놓치니까, 메뉴가 등록된 모든 달을 보여주고 관리자가 직접 골라서 지울 수 있게 해요.
+  const allMenuMonthsList = allMenuMonths || [];
 
   const viewDate = new Date(activeYear, activeMonth - 1 + offset, 1);
   const viewYear = viewDate.getFullYear();
@@ -4900,12 +4901,12 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onDeleteMenuMonth, onSen
 
       <SendNotificationButton notice={{ title: "메뉴판 업데이트" }} onSend={onSendMenuNotification} label="🍱 학부모에게 메뉴 업데이트 알림 보내기" />
 
-      {pastMonths.length > 0 && (
+      {allMenuMonthsList.length > 0 && (
         <div style={{ marginTop: 24 }}>
-          <div style={{ ...styles.sectionTitle, color: "#9AA39A" }}>지난 달 메뉴 정리</div>
-          <p style={styles.helperText}>이미 지나간 달의 메뉴판이에요. 더 이상 안 쓰면 지워서 정리할 수 있어요.</p>
+          <div style={{ ...styles.sectionTitle, color: "#9AA39A" }}>메뉴판 정리 (등록된 모든 달)</div>
+          <p style={styles.helperText}>더 이상 안 쓰는 달의 메뉴판을 골라서 지울 수 있어요. 지금 편집 중인 달도 목록에 보일 수 있으니, 지울 달을 잘 확인하고 눌러주세요.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {pastMonths.map((key) => {
+            {allMenuMonthsList.map((key) => {
               const [y, m] = key.split("-").map(Number);
               return <DeleteMonthButton key={key} label={monthLabel(y, m)} monthKeyStr={key} onDelete={async () => { await onDeleteMenuMonth(key); setAllMenuMonths((prev) => prev.filter((k) => k !== key)); }} />;
             })}
