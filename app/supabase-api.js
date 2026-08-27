@@ -180,11 +180,14 @@ export async function getAdminData(yearMonth) {
   }
   const computeCycleUsed = (profileId, child) => {
     const cutoff = getCycleCutoff(child);
+    const now = new Date();
     let count = 0;
     for (const o of ordersByProfile[profileId] || []) {
       const [y, m] = o.year_month.split("-").map(Number);
       for (const day of o.selected_days || []) {
-        if (new Date(y, m - 1, day) > cutoff) count++;
+        const date = new Date(y, m - 1, day);
+        // 학부모 화면과 동일하게, 실제로 도시락이 나간(=이미 지난) 날짜만 사용 횟수로 세요.
+        if (date > cutoff && date <= now) count++;
       }
     }
     return count;
@@ -311,10 +314,35 @@ export async function submitPayment(userId, childId, yearMonth, amount, promo = 
     discount_amount: promo?.discountAmount || 0,
   });
   if (error) throw error;
-  // 결제를 제출한 시점부터 이 자녀의 다음 12회 사이클을 새로 셉니다.
+
+  // 조기 결제(사이클이 다 안 끝났는데 미리 결제)를 하더라도, 이미 체크해둔 남은 신청일은
+  // "손해" 보지 않도록 예전 사이클 몫으로 그대로 남겨요. 새 사이클은 그 이후 날짜부터 0으로 시작해요.
+  const { data: childRow, error: childErr } = await supabase
+    .from("children")
+    .select("cycle_paid_through, service_start_date")
+    .eq("id", childId)
+    .single();
+  if (childErr) throw childErr;
+
+  const oldCutoff = getCycleCutoff(childRow);
+  const now = new Date();
+
+  const { data: orders } = await supabase.from("orders").select("year_month, selected_days").eq("profile_id", userId);
+  let latestSelectedDate = null;
+  for (const o of orders || []) {
+    const [y, m] = o.year_month.split("-").map(Number);
+    for (const day of o.selected_days || []) {
+      const d = new Date(y, m - 1, day);
+      if (d > oldCutoff && (!latestSelectedDate || d > latestSelectedDate)) latestSelectedDate = d;
+    }
+  }
+  // 이미 체크된 신청일 중 오늘 이후로 남아있는 게 있으면, 그 마지막 날짜까지는 예전 사이클로 쳐주고
+  // 새 사이클은 그다음 날부터 시작해요. 남은 신청일이 없으면(=정말 딱 맞춰 결제한 경우) 그냥 지금부터 새로 세요.
+  const newCutoff = latestSelectedDate && latestSelectedDate > now ? latestSelectedDate : now;
+
   const { error: resetErr } = await supabase
     .from("children")
-    .update({ cycle_paid_through: new Date() })
+    .update({ cycle_paid_through: newCutoff })
     .eq("id", childId);
   if (resetErr) throw resetErr;
 
@@ -447,8 +475,10 @@ export async function getCycleUsage(profileId, children) {
       // 똑같이 "신청됨"으로 봐요. 실제로 저장된 기록이 있는 달에서는(=한 번이라도 건드렸으면) 체크 안 한
       // 날짜는 마감을 기다리지 않고 스킵 버튼을 누른 즉시 "스킵"으로 셉니다.
       const isSelected = orderSet ? orderSet.has(row.day) : true;
-      if (isSelected) used++;
-      else if (orderSet) skipped++;
+      // "사용" 횟수는 실제로 도시락이 나간(=날짜가 이미 지난) 날짜만 셉니다. 미래에 미리 체크해둔 날짜는
+      // 아무리 많아도 아직 사용 횟수에 안 들어가고, 그날이 실제로 지나야 비로소 카운트돼요.
+      if (isSelected && date <= now) used++;
+      else if (!isSelected && orderSet) skipped++;
     }
     cycleUsage[child.id] = { used, skipped };
   }
