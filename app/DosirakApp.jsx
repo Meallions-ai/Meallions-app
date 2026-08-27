@@ -4616,8 +4616,9 @@ function ReviewPopup({ onClose, onSubmit, t }) {
 }
 
 function AdminMenuEditor({ menusByMonth, onUpdateMenus, onSendMenuNotification, activeYear, activeMonth }) {
-  const [offset, setOffset] = useState(0); // 0=이번달, 1=다음달
+  const [offset, setOffset] = useState(0); // 0=이번달, 1=다음달 (월별 보기에서만 사용)
   const [newDay, setNewDay] = useState("");
+  const [combinedView, setCombinedView] = useState(false); // 12회 사이클이 월 중간에 걸칠 때, 이번달+다음달을 이어서 보는 모드
 
   const viewDate = new Date(activeYear, activeMonth - 1 + offset, 1);
   const viewYear = viewDate.getFullYear();
@@ -4626,15 +4627,40 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onSendMenuNotification, 
   const menus = menusByMonth[viewKey] || {};
   const days = Object.keys(menus).map(Number).sort((a, b) => a - b);
 
-  const updateField = (day, key, value) => {
-    onUpdateMenus(viewKey, { ...menus, [day]: { ...menus[day], [key]: value } });
+  const nextDate = new Date(activeYear, activeMonth, 1);
+  const nextYear = nextDate.getFullYear();
+  const nextMonthNum = nextDate.getMonth() + 1;
+  const nextKey = monthKey(nextYear, nextMonthNum);
+  const nextMenus = menusByMonth[nextKey] || {};
+
+  // 이어보기 모드용 — 이번달 + 다음달 날짜를 실제 날짜 순서로 하나로 합쳐요.
+  const combinedEntries = combinedView
+    ? [
+        ...Object.keys(menus).map(Number).sort((a, b) => a - b).map((d) => ({ year: activeYear, month: activeMonth, day: d, key: viewKeyFor(activeYear, activeMonth) })),
+        ...Object.keys(nextMenus).map(Number).sort((a, b) => a - b).map((d) => ({ year: nextYear, month: nextMonthNum, day: d, key: nextKey })),
+      ]
+    : [];
+
+  function viewKeyFor(y, m) {
+    return monthKey(y, m);
+  }
+
+  const updateFieldFor = (key, day, menusOfKey, fieldKey, value) => {
+    onUpdateMenus(key, { ...menusOfKey, [day]: { ...menusOfKey[day], [fieldKey]: value } });
+  };
+  const toggleHolidayFor = (key, day, menusOfKey) => {
+    onUpdateMenus(key, { ...menusOfKey, [day]: { ...menusOfKey[day], isHoliday: !menusOfKey[day].isHoliday } });
+  };
+  const removeDayFor = (key, day, menusOfKey) => {
+    const next = { ...menusOfKey };
+    delete next[day];
+    onUpdateMenus(key, next);
   };
 
-  const removeDay = (day) => {
-    const next = { ...menus };
-    delete next[day];
-    onUpdateMenus(viewKey, next);
-  };
+  // 단일 월 보기용 (기존 방식 그대로)
+  const updateField = (day, key, value) => updateFieldFor(viewKey, day, menus, key, value);
+  const removeDay = (day) => removeDayFor(viewKey, day, menus);
+  const toggleHoliday = (day) => toggleHolidayFor(viewKey, day, menus);
 
   const addDay = () => {
     const d = parseInt(newDay, 10);
@@ -4643,106 +4669,228 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onSendMenuNotification, 
     setNewDay("");
   };
 
-  const toggleHoliday = (day) => {
-    onUpdateMenus(viewKey, { ...menus, [day]: { ...menus[day], isHoliday: !menus[day].isHoliday } });
-  };
-
   // 이번달 메뉴를 다음달로 복사 — 다음달에 이미 등록된 날짜는 덮어쓰지 않고, 비어있는 날짜만 채워줍니다.
   const handleCopyToNextMonth = () => {
-    const nextDate = new Date(activeYear, activeMonth - 1 + 1, 1);
-    const nextKey = monthKey(nextDate.getFullYear(), nextDate.getMonth() + 1);
-    const nextMenus = menusByMonth[nextKey] || {};
     onUpdateMenus(nextKey, { ...menus, ...nextMenus });
     setOffset(1);
   };
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <div style={styles.sectionTitle}>{monthLabel(viewYear, viewMonth)} 메뉴 관리</div>
-        <div style={{ display: "flex", gap: 4 }}>
-          <button onClick={() => setOffset((o) => Math.max(0, o - 1))} disabled={offset === 0} style={{ ...styles.iconBtn, opacity: offset === 0 ? 0.4 : 1 }}>
-            <ChevronLeft size={16} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
+        <div style={styles.sectionTitle}>
+          {combinedView ? `${monthLabel(activeYear, activeMonth)} ~ ${monthLabel(nextYear, nextMonthNum)} 메뉴 관리` : `${monthLabel(viewYear, viewMonth)} 메뉴 관리`}
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            onClick={() => setCombinedView((v) => !v)}
+            style={{
+              fontSize: 11.5,
+              fontWeight: 700,
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid #DCE3DC",
+              background: combinedView ? "#4F7A44" : "#fff",
+              color: combinedView ? "#fff" : "#5C6A5C",
+              cursor: "pointer",
+            }}
+          >
+            {combinedView ? "✓ 이어보기 중" : "이번달+다음달 이어보기"}
           </button>
-          <button onClick={() => setOffset((o) => Math.min(1, o + 1))} disabled={offset === 1} style={{ ...styles.iconBtn, opacity: offset === 1 ? 0.4 : 1 }}>
-            <ChevronRight size={16} />
-          </button>
+          {!combinedView && (
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={() => setOffset((o) => Math.max(0, o - 1))} disabled={offset === 0} style={{ ...styles.iconBtn, opacity: offset === 0 ? 0.4 : 1 }}>
+                <ChevronLeft size={16} />
+              </button>
+              <button onClick={() => setOffset((o) => Math.min(1, o + 1))} disabled={offset === 1} style={{ ...styles.iconBtn, opacity: offset === 1 ? 0.4 : 1 }}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
-      <p style={styles.helperText}>여기서 수정하면 학부모 화면의 캘린더·배송일 메뉴에 바로 반영돼요. 다음 달 메뉴도 미리 준비해둘 수 있어요. 공휴일·방학처럼 배송이 없는 날은 "공휴일/방학으로 등록"을 눌러 안내 문구만 넣어주세요.</p>
+      <p style={styles.helperText}>
+        {combinedView
+          ? "12회 사이클이 월 중간에 걸칠 때 편하도록, 이번달과 다음달 배송일을 날짜 순서대로 이어서 보여줘요."
+          : "여기서 수정하면 학부모 화면의 캘린더·배송일 메뉴에 바로 반영돼요. 다음 달 메뉴도 미리 준비해둘 수 있어요. 공휴일·방학처럼 배송이 없는 날은 \"공휴일/방학으로 등록\"을 눌러 안내 문구만 넣어주세요."}
+      </p>
 
-      {offset === 0 && days.length > 0 && (
+      {!combinedView && offset === 0 && days.length > 0 && (
         <button onClick={handleCopyToNextMonth} style={styles.copyMenuBtn}>
           이번달 메뉴를 다음달로 복사 (다음달에 이미 있는 날짜는 유지돼요)
         </button>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {days.map((d) => {
-          const wd = getWeekday(viewYear, viewMonth, d);
-          const isHoliday = !!menus[d].isHoliday;
-          return (
-            <div key={d} style={{ ...styles.menuEditRow, alignItems: "flex-start" }} className="fade-item">
-              <div style={styles.menuDateCol}>
-                <div style={{ fontSize: 12, color: "#9AA39A" }}>{WEEKDAYS[wd]}</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: isHoliday ? "#C0392B" : "#4F7A44" }}>{d}</div>
-              </div>
-              <div style={styles.menuEditTextCol}>
-                <button onClick={() => toggleHoliday(d)} style={{ ...styles.holidayToggleBtn, ...(isHoliday ? styles.holidayToggleBtnActive : {}) }}>
-                  {isHoliday ? "✓ 공휴일/방학으로 등록됨" : "공휴일/방학으로 등록"}
-                </button>
-                {isHoliday ? (
-                  <input
-                    style={{ ...styles.menuEditInput, marginTop: 6, borderColor: "#F2C9C2", color: "#C0392B" }}
-                    value={menus[d].holidayLabel || ""}
-                    onChange={(e) => updateField(d, "holidayLabel", e.target.value)}
-                    placeholder="예: HAPPY BC Day, 겨울방학"
-                  />
-                ) : (
-                  <>
-                    <input
-                      style={{ ...styles.menuEditInput, marginTop: 6 }}
-                      value={menus[d].main}
-                      onChange={(e) => updateField(d, "main", e.target.value)}
-                      placeholder="메인 메뉴"
-                    />
-                    <input
-                      style={{ ...styles.menuEditInput, marginTop: 6 }}
-                      value={menus[d].side}
-                      onChange={(e) => updateField(d, "side", e.target.value)}
-                      placeholder="사이드 메뉴"
-                    />
-                    <input
-                      style={{ ...styles.menuEditInput, marginTop: 6 }}
-                      value={menus[d].fruit || ""}
-                      onChange={(e) => updateField(d, "fruit", e.target.value)}
-                      placeholder="과일"
-                    />
-                  </>
+      {combinedView ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {combinedEntries.map((entry, i) => {
+            const entryMenus = entry.key === viewKeyFor(activeYear, activeMonth) ? menus : nextMenus;
+            const menu = entryMenus[entry.day];
+            if (!menu) return null;
+            const isHoliday = !!menu.isHoliday;
+            const wd = getWeekday(entry.year, entry.month, entry.day);
+            const prevEntry = combinedEntries[i - 1];
+            const showMonthDivider = i === 0 || (prevEntry && prevEntry.month !== entry.month);
+            return (
+              <div key={`${entry.key}-${entry.day}`}>
+                {showMonthDivider && (
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#9AA39A", margin: "10px 2px 4px" }}>
+                    ── {monthLabel(entry.year, entry.month)} ──
+                  </div>
                 )}
+                <div style={{ ...styles.menuEditRow, alignItems: "flex-start" }} className="fade-item">
+                  <div style={styles.menuDateCol}>
+                    <div style={{ fontSize: 12, color: "#9AA39A" }}>{WEEKDAYS[wd]}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: isHoliday ? "#C0392B" : "#4F7A44" }}>{entry.day}</div>
+                  </div>
+                  <div style={styles.menuEditTextCol}>
+                    <button
+                      onClick={() => toggleHolidayFor(entry.key, entry.day, entryMenus)}
+                      style={{ ...styles.holidayToggleBtn, ...(isHoliday ? styles.holidayToggleBtnActive : {}) }}
+                    >
+                      {isHoliday ? "✓ 공휴일/방학으로 등록됨" : "공휴일/방학으로 등록"}
+                    </button>
+                    {isHoliday ? (
+                      <input
+                        style={{ ...styles.menuEditInput, marginTop: 6, borderColor: "#F2C9C2", color: "#C0392B" }}
+                        value={menu.holidayLabel || ""}
+                        onChange={(e) => updateFieldFor(entry.key, entry.day, entryMenus, "holidayLabel", e.target.value)}
+                        placeholder="예: HAPPY BC Day, 겨울방학"
+                      />
+                    ) : (
+                      <>
+                        <input
+                          style={{ ...styles.menuEditInput, marginTop: 6 }}
+                          value={menu.main}
+                          onChange={(e) => updateFieldFor(entry.key, entry.day, entryMenus, "main", e.target.value)}
+                          placeholder="메인 메뉴"
+                        />
+                        <input
+                          style={{ ...styles.menuEditInput, marginTop: 6 }}
+                          value={menu.side}
+                          onChange={(e) => updateFieldFor(entry.key, entry.day, entryMenus, "side", e.target.value)}
+                          placeholder="사이드 메뉴"
+                        />
+                        <input
+                          style={{ ...styles.menuEditInput, marginTop: 6 }}
+                          value={menu.fruit || ""}
+                          onChange={(e) => updateFieldFor(entry.key, entry.day, entryMenus, "fruit", e.target.value)}
+                          placeholder="과일"
+                        />
+                      </>
+                    )}
+                  </div>
+                  <button onClick={() => removeDayFor(entry.key, entry.day, entryMenus)} style={styles.removeChildBtn}>
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
-              <button onClick={() => removeDay(d)} style={styles.removeChildBtn}>
-                <X size={14} />
-              </button>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+          {combinedEntries.length === 0 && (
+            <div style={{ fontSize: 13, color: "#9AA39A", padding: "10px 2px" }}>등록된 배송일이 아직 없어요.</div>
+          )}
 
-      <div style={styles.addMenuRow}>
-        <input
-          type="number"
-          min="1"
-          max="31"
-          value={newDay}
-          onChange={(e) => setNewDay(e.target.value)}
-          placeholder="날짜 (예: 3)"
-          style={{ ...styles.fieldInput, width: 100 }}
-        />
-        <button onClick={addDay} style={{ ...styles.addChildBtn, width: "auto", flex: 1, padding: "12px 16px" }}>+ 배송일 추가</button>
-      </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+            <AddDayRow label={`${monthLabel(activeYear, activeMonth)}에 날짜 추가`} onAdd={(d) => onUpdateMenus(viewKeyFor(activeYear, activeMonth), { ...menus, [d]: { main: "", side: "", fruit: "", isHoliday: false, holidayLabel: "" } })} disabledDays={menus} />
+            <AddDayRow label={`${monthLabel(nextYear, nextMonthNum)}에 날짜 추가`} onAdd={(d) => onUpdateMenus(nextKey, { ...nextMenus, [d]: { main: "", side: "", fruit: "", isHoliday: false, holidayLabel: "" } })} disabledDays={nextMenus} />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {days.map((d) => {
+              const wd = getWeekday(viewYear, viewMonth, d);
+              const isHoliday = !!menus[d].isHoliday;
+              return (
+                <div key={d} style={{ ...styles.menuEditRow, alignItems: "flex-start" }} className="fade-item">
+                  <div style={styles.menuDateCol}>
+                    <div style={{ fontSize: 12, color: "#9AA39A" }}>{WEEKDAYS[wd]}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: isHoliday ? "#C0392B" : "#4F7A44" }}>{d}</div>
+                  </div>
+                  <div style={styles.menuEditTextCol}>
+                    <button onClick={() => toggleHoliday(d)} style={{ ...styles.holidayToggleBtn, ...(isHoliday ? styles.holidayToggleBtnActive : {}) }}>
+                      {isHoliday ? "✓ 공휴일/방학으로 등록됨" : "공휴일/방학으로 등록"}
+                    </button>
+                    {isHoliday ? (
+                      <input
+                        style={{ ...styles.menuEditInput, marginTop: 6, borderColor: "#F2C9C2", color: "#C0392B" }}
+                        value={menus[d].holidayLabel || ""}
+                        onChange={(e) => updateField(d, "holidayLabel", e.target.value)}
+                        placeholder="예: HAPPY BC Day, 겨울방학"
+                      />
+                    ) : (
+                      <>
+                        <input
+                          style={{ ...styles.menuEditInput, marginTop: 6 }}
+                          value={menus[d].main}
+                          onChange={(e) => updateField(d, "main", e.target.value)}
+                          placeholder="메인 메뉴"
+                        />
+                        <input
+                          style={{ ...styles.menuEditInput, marginTop: 6 }}
+                          value={menus[d].side}
+                          onChange={(e) => updateField(d, "side", e.target.value)}
+                          placeholder="사이드 메뉴"
+                        />
+                        <input
+                          style={{ ...styles.menuEditInput, marginTop: 6 }}
+                          value={menus[d].fruit || ""}
+                          onChange={(e) => updateField(d, "fruit", e.target.value)}
+                          placeholder="과일"
+                        />
+                      </>
+                    )}
+                  </div>
+                  <button onClick={() => removeDay(d)} style={styles.removeChildBtn}>
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={styles.addMenuRow}>
+            <input
+              type="number"
+              min="1"
+              max="31"
+              value={newDay}
+              onChange={(e) => setNewDay(e.target.value)}
+              placeholder="날짜 (예: 3)"
+              style={{ ...styles.fieldInput, width: 100 }}
+            />
+            <button onClick={addDay} style={{ ...styles.addChildBtn, width: "auto", flex: 1, padding: "12px 16px" }}>+ 배송일 추가</button>
+          </div>
+        </>
+      )}
 
       <SendNotificationButton notice={{ title: "메뉴판 업데이트" }} onSend={onSendMenuNotification} label="🍱 학부모에게 메뉴 업데이트 알림 보내기" />
+    </div>
+  );
+}
+
+// 이어보기 모드에서 특정 달에 새 날짜를 추가하는 작은 입력줄이에요.
+function AddDayRow({ label, onAdd, disabledDays }) {
+  const [value, setValue] = useState("");
+  const handleAdd = () => {
+    const d = parseInt(value, 10);
+    if (!d || d < 1 || d > 31 || disabledDays[d]) return;
+    onAdd(d);
+    setValue("");
+  };
+  return (
+    <div style={styles.addMenuRow}>
+      <input
+        type="number"
+        min="1"
+        max="31"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="날짜 (예: 3)"
+        style={{ ...styles.fieldInput, width: 100 }}
+      />
+      <button onClick={handleAdd} style={{ ...styles.addChildBtn, width: "auto", flex: 1, padding: "12px 16px" }}>+ {label}</button>
     </div>
   );
 }
