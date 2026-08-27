@@ -105,6 +105,8 @@ const TRANSLATIONS = {
     "order.deliveryHelper": "도시락은 월·화·목요일에만 배송돼요. 원하는 날짜를 탭해서 신청·스킵하세요. 스킵한 날짜는 신청 횟수에 포함되지 않고, 실제 신청한 날짜만 누적돼요. 결제는 달 단위가 아니라 자녀별로 마지막 결제 이후 12회 신청이 채워지면 진행하시면 돼요.",
     "order.lockHelper": "신청·스킵 변경은 배송 주간 전주 금요일까지만 가능해요 (식자재 준비 때문에 이후엔 변경할 수 없어요). 🔒 표시는 마감된 날짜예요.",
     "order.copyPrevMonth": "지난달과 동일하게 신청",
+    "order.clearSelection": "선택 초기화",
+    "order.clearSelectionConfirm": "정말로 이 달 선택을 전부 초기화할까요? 다시 눌러 확정",
     "order.daysUnit": "일 신청",
     "order.cycleHint": "결제는 12회 신청마다 자동 안내돼요",
     "order.multiChildNote": "등록된 자녀가 {n}명이라, 신청한 날마다 도시락이 {n}개씩 준비돼요.",
@@ -339,6 +341,8 @@ const TRANSLATIONS = {
     "order.lockHelper": "You can change your order/skip choice only until the Friday before that delivery week (needed for ingredient prep). 🔒 marks a closed date.",
     "order.multiChildNote": "You have {n} children registered, so {n} lunches will be prepared for each ordered day.",
     "order.copyPrevMonth": "Same as last month",
+    "order.clearSelection": "Clear selections",
+    "order.clearSelectionConfirm": "Clear all selections for this month? Tap again to confirm",
     "order.daysUnit": "days ordered",
     "order.cycleHint": "You'll be notified every 12 orders",
     "order.usedTitle": "Used this month",
@@ -573,6 +577,8 @@ const TRANSLATIONS = {
     "order.multiChildNote": "Vous avez {n} enfant(s) enregistré(s), donc {n} repas seront préparés pour chaque jour commandé.",
     "order.usedTitle": "Utilisé ce mois-ci",
     "order.copyPrevMonth": "Identique au mois dernier",
+    "order.clearSelection": "Réinitialiser les sélections",
+    "order.clearSelectionConfirm": "Effacer toutes les sélections de ce mois ? Appuyez à nouveau pour confirmer",
     "order.daysUnit": "jours commandés",
     "order.cycleHint": "Vous serez averti(e) tous les 12 commandes",
     "order.remaining": "{n} restant(s)",
@@ -806,6 +812,8 @@ const TRANSLATIONS = {
     "order.multiChildNote": "您已登记 {n} 个孩子，因此每个申请日将准备 {n} 份便当。",
     "order.usedTitle": "本月已使用次数",
     "order.copyPrevMonth": "与上月相同",
+    "order.clearSelection": "重置选择",
+    "order.clearSelectionConfirm": "确定要清空本月的全部选择吗？再次点击确认",
     "order.daysUnit": "天已申请",
     "order.cycleHint": "每满12次申请会自动提醒付款",
     "order.remaining": "剩余 {n} 次",
@@ -3897,6 +3905,12 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
     setCopyingPrevMonth(false);
   };
 
+  // 이번 달(또는 다음 달) 신청 전체를 처음부터 다시 고를 수 있도록 싹 비워줘요 (전부 스킵 상태로).
+  const handleClearSelection = () => {
+    setSelected(new Set());
+    onUpdateOrder(viewKey, []);
+  };
+
   const usedCount = selected.size; // 이번 달 신청 날짜 수 — 참고용 표시일 뿐, 결제 사이클과는 무관해요.
   // 결제는 자녀별로 "마지막 결제 이후 12회를 채웠는지"로 판단해요 (달과 무관하게 누적).
   const childrenDue = account.children.filter(
@@ -4105,6 +4119,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
             isBeforeServiceStart={isBeforeServiceStart}
             onCopyPreviousMonth={handleCopyPreviousMonthClick}
             copyingPrevMonth={copyingPrevMonth}
+            onClearSelection={handleClearSelection}
             t={t}
           />
         )}
@@ -4191,7 +4206,7 @@ function TabButton({ icon, label, active, onClick }) {
   );
 }
 
-function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, monthLabel: viewMonthLabel, monthOffset, onPrevMonth, onNextMonth, selected, toggleDay, usedCount, familyChildren, quotaBlockedMsg, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, t }) {
+function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, monthLabel: viewMonthLabel, monthOffset, onPrevMonth, onNextMonth, selected, toggleDay, usedCount, familyChildren, quotaBlockedMsg, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, onClearSelection, t }) {
   return (
     <div>
       {typeof monthOffset === "number" && (
@@ -4250,6 +4265,7 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
       <button onClick={onCopyPreviousMonth} disabled={copyingPrevMonth} style={styles.copyPrevMonthBtn}>
         {copyingPrevMonth ? <Loader2 size={14} className="spin" /> : null} {t("order.copyPrevMonth")}
       </button>
+      <ClearSelectionButton onClear={onClearSelection} t={t} />
       <p style={styles.helperText}>
         {t("order.deliveryHelper")}
         <br />{t("order.lockHelper")}
@@ -4315,6 +4331,37 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
 
       <p style={{ ...styles.helperText, textAlign: "center" }}>{t("order.tapForMenu")}</p>
     </div>
+  );
+}
+
+// 이번 달(보고 있는 달) 신청 전체를 처음부터 다시 고를 수 있도록 싹 비우는 버튼이에요.
+// 실수로 누르지 않도록 한 번 누르면 "정말요?" 문구로 바뀌고, 다시 눌러야 확정돼요.
+function ClearSelectionButton({ onClear, t }) {
+  const [armed, setArmed] = useState(false);
+
+  const handleClick = () => {
+    if (!armed) {
+      setArmed(true);
+      setTimeout(() => setArmed(false), 4000);
+      return;
+    }
+    onClear();
+    setArmed(false);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        ...styles.copyPrevMonthBtn,
+        marginTop: 8,
+        background: armed ? "#FCE4E1" : styles.copyPrevMonthBtn.background,
+        color: armed ? "#C0392B" : styles.copyPrevMonthBtn.color,
+        border: armed ? "1.5px solid #F2C9C2" : styles.copyPrevMonthBtn.border,
+      }}
+    >
+      {armed ? t("order.clearSelectionConfirm") : t("order.clearSelection")}
+    </button>
   );
 }
 
