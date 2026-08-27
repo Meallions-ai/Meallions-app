@@ -892,6 +892,35 @@ function formatCAD(n) {
   return `$${n.toFixed(2)}`;
 }
 
+// 과일 이름 글자를 보고 그에 맞는 이모지를 골라줘요. 못 찾으면(새 과일 이름 등) 이모지 없이 글자만 보여줘요.
+function getFruitEmoji(fruitName) {
+  if (!fruitName) return "";
+  const name = fruitName.toLowerCase();
+  const table = [
+    [["사과"], "🍎"],
+    [["배"], "🍐"],
+    [["바나나"], "🍌"],
+    [["포도"], "🍇"],
+    [["딸기"], "🍓"],
+    [["귤", "감귤", "오렌지", "만다린"], "🍊"],
+    [["수박"], "🍉"],
+    [["참외", "멜론"], "🍈"],
+    [["복숭아"], "🍑"],
+    [["키위"], "🥝"],
+    [["파인애플"], "🍍"],
+    [["토마토"], "🍅"],
+    [["체리"], "🍒"],
+    [["망고"], "🥭"],
+    [["레몬"], "🍋"],
+    [["코코넛"], "🥥"],
+    [["블루베리"], "🫐"],
+  ];
+  for (const [keywords, emoji] of table) {
+    if (keywords.some((k) => name.includes(k))) return emoji;
+  }
+  return ""; // 매칭되는 과일이 없으면 이모지 없이 이름만 보여줘요 (엉뚱한 과일 그림을 붙이는 것보다 나아요).
+}
+
 // ---- 밴쿠버(태평양) 표준시간대 기준 날짜 계산 ----
 function vancouverNow() {
   const now = new Date();
@@ -4337,7 +4366,7 @@ function DayDetailSheet({ day, monthLabel: mLabel, menu, isSelected, locked, loc
           <>
             <div style={styles.sheetMain}>{menu.main}</div>
             <div style={styles.sheetSide}>{menu.side}</div>
-            {menu.fruit && <div style={styles.sheetFruit}>🍎 {menu.fruit}</div>}
+            {menu.fruit && <div style={styles.sheetFruit}>{getFruitEmoji(menu.fruit)} {menu.fruit}</div>}
             {locked ? (
               <div style={styles.lockedNotice}>
                 {lockedReason === "serviceNotStarted" ? t("detail.serviceNotStartedNotice") : t("detail.lockedNotice")}
