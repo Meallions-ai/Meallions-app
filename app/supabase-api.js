@@ -755,7 +755,7 @@ export async function unsubscribeFromPush() {
 // 실제 발송 — Supabase 엣지 함수(send-push-notification)를 호출해요.
 // targetProfileIds를 생략하면 구독된 모든 학부모에게, 배열로 주면 그 사람들에게만 보내요.
 export async function sendPushNotification({ title, body, url, tag, targetProfileIds }) {
-  const { data, error } = await supabase.functions.invoke("send-push-notification", {
+  const { data, error } = await supabase.functions.invoke("super-worker", {
     body: { title, body, url, tag, targetProfileIds },
   });
   if (error) throw error;
