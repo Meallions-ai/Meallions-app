@@ -1653,6 +1653,22 @@ function AppInner() {
     setMenusByMonth((prev) => ({ ...prev, [key]: newMenus }));
   };
 
+  // 지난 달처럼 더 이상 필요 없는 메뉴판을 통째로 정리할 때 씁니다.
+  const handleDeleteMenuMonth = async (key) => {
+    try {
+      await api.deleteMenuMonth(key);
+      setMenusByMonth((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      logActivity("delete_menu_month", `지난 메뉴 삭제: ${key}`, { key });
+    } catch (e) {
+      setDataError("메뉴 삭제 중 오류가 발생했어요.");
+      throw e;
+    }
+  };
+
   const handleUpdateNotices = async (newNotices) => {
     const oldIds = new Set(notices.map((n) => n.id));
     const newIds = new Set(newNotices.map((n) => n.id));
@@ -1743,6 +1759,7 @@ function AppInner() {
         removedChildPayments={removedChildPayments}
         menusByMonth={menusByMonth}
         onUpdateMenus={handleUpdateMenus}
+        onDeleteMenuMonth={handleDeleteMenuMonth}
         notices={notices}
         onUpdateNotices={handleUpdateNotices}
         onSendNoticeNotification={handleSendNoticeNotification}
@@ -2842,7 +2859,7 @@ function MiniBarChart({ data, valueKey, labelKey, color, formatValue }) {
   );
 }
 
-function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onResetChildCycle, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError }) {
+function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, onDeleteMenuMonth, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onResetChildCycle, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError }) {
   const [tab, setTab] = useState("overview");
   const [overviewView, setOverviewView] = useState("calendar"); // calendar | daily | family — 신청 현황 보기 방식
   const [paymentFilter, setPaymentFilter] = useState("all"); // all | partial (일부만 결제한 가정)
@@ -3389,6 +3406,7 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
           <AdminMenuEditor
             menusByMonth={menusByMonth}
             onUpdateMenus={onUpdateMenus}
+            onDeleteMenuMonth={onDeleteMenuMonth}
             onSendMenuNotification={onSendMenuNotification}
             activeYear={activeYear}
             activeMonth={activeMonth}
@@ -4615,10 +4633,17 @@ function ReviewPopup({ onClose, onSubmit, t }) {
   );
 }
 
-function AdminMenuEditor({ menusByMonth, onUpdateMenus, onSendMenuNotification, activeYear, activeMonth }) {
+function AdminMenuEditor({ menusByMonth, onUpdateMenus, onDeleteMenuMonth, onSendMenuNotification, activeYear, activeMonth }) {
   const [offset, setOffset] = useState(0); // 0=이번달, 1=다음달 (월별 보기에서만 사용)
   const [newDay, setNewDay] = useState("");
   const [combinedView, setCombinedView] = useState(false); // 12회 사이클이 월 중간에 걸칠 때, 이번달+다음달을 이어서 보는 모드
+  const [allMenuMonths, setAllMenuMonths] = useState(null); // 지난 달 정리용 — 메뉴가 하나라도 있는 모든 달
+
+  useEffect(() => {
+    api.getMenuMonthKeys().then(setAllMenuMonths).catch(() => setAllMenuMonths([]));
+  }, []);
+  const activeKeyNow = monthKey(activeYear, activeMonth);
+  const pastMonths = (allMenuMonths || []).filter((k) => k < activeKeyNow);
 
   const viewDate = new Date(activeYear, activeMonth - 1 + offset, 1);
   const viewYear = viewDate.getFullYear();
@@ -4874,7 +4899,60 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onSendMenuNotification, 
       )}
 
       <SendNotificationButton notice={{ title: "메뉴판 업데이트" }} onSend={onSendMenuNotification} label="🍱 학부모에게 메뉴 업데이트 알림 보내기" />
+
+      {pastMonths.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <div style={{ ...styles.sectionTitle, color: "#9AA39A" }}>지난 달 메뉴 정리</div>
+          <p style={styles.helperText}>이미 지나간 달의 메뉴판이에요. 더 이상 안 쓰면 지워서 정리할 수 있어요.</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {pastMonths.map((key) => {
+              const [y, m] = key.split("-").map(Number);
+              return <DeleteMonthButton key={key} label={monthLabel(y, m)} monthKeyStr={key} onDelete={async () => { await onDeleteMenuMonth(key); setAllMenuMonths((prev) => prev.filter((k) => k !== key)); }} />;
+            })}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// 지난 달 메뉴 하나를 통째로 지우는 버튼이에요. 되돌릴 수 없어서 두 번 눌러야 확정돼요.
+function DeleteMonthButton({ label, onDelete }) {
+  const [armed, setArmed] = useState(false);
+  const [status, setStatus] = useState("idle"); // idle | working | error
+
+  const handleClick = async () => {
+    if (!armed) {
+      setArmed(true);
+      setTimeout(() => setArmed(false), 4000);
+      return;
+    }
+    setStatus("working");
+    try {
+      await onDelete();
+    } catch (e) {
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 2500);
+      setArmed(false);
+      return;
+    }
+    setStatus("idle");
+    setArmed(false);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={status === "working"}
+      style={{
+        ...styles.revokeBtn,
+        width: "100%",
+        color: armed ? "#fff" : undefined,
+        background: armed ? "#C0392B" : undefined,
+      }}
+    >
+      {status === "working" ? "삭제 중..." : status === "error" ? "삭제 실패 ✕" : armed ? `정말로 ${label} 메뉴를 전부 지울까요? 다시 눌러 확정` : `${label} 메뉴 삭제`}
+    </button>
   );
 }
 
