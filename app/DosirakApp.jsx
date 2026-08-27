@@ -4242,15 +4242,12 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
             {familyChildren.map((child) => {
               const quota = getChildQuota(child);
               const used = child.cycleUsed || 0;
-              const skipped = child.cycleSkipped || 0;
               const remaining = Math.max(0, quota - used);
               return (
                 <div key={child.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#33402F" }}>{child.name}</div>
                   <div style={{ fontSize: 12, color: "#7C8A7C", display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <span>{t("order.used", { used })}</span>
-                    <span>·</span>
-                    <span>{t("order.skipped", { skipped })}</span>
                     <span>·</span>
                     <span style={{ fontWeight: 700, color: "#4F7A44" }}>{t("order.remaining", { remaining })}</span>
                     <span style={{ color: "#C9CFC9" }}>{t("order.totalCount", { total: quota })}</span>
