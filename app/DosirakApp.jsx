@@ -1377,6 +1377,30 @@ function AppInner() {
     loadMyAccount(session.user.id);
   }, [session, activeKey]);
 
+  // 관리자가 다른 곳에서 사이클 횟수·메뉴 등을 바꿔도, 새로고침 버튼을 직접 안 눌러도 자동으로 반영되도록
+  // 1분마다, 그리고 앱을 다시 열거나 다른 탭에서 돌아올 때마다 조용히 최신 데이터를 다시 받아와요.
+  useEffect(() => {
+    if (!session || !account) return;
+    const refreshQuietly = () => {
+      if (account.role === "admin") {
+        loadAdminAccounts();
+      } else {
+        loadMyAccount(session.user.id);
+      }
+    };
+    const interval = setInterval(refreshQuietly, 60 * 1000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshQuietly();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refreshQuietly);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refreshQuietly);
+    };
+  }, [session, account?.id, account?.role]);
+
   useEffect(() => {
     if (account?.role === "admin") {
       loadAdminAccounts();
@@ -3668,8 +3692,22 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
     return dateStr < familyServiceStartDate;
   };
 
+  const [quotaBlockedMsg, setQuotaBlockedMsg] = useState("");
   const toggleDay = (day) => {
     if (isSkipLocked(viewYear, viewMonth, day) || isBeforeServiceStart(viewYear, viewMonth, day)) return;
+    const isAdding = !selected.has(day);
+    if (isAdding) {
+      // 이미 사이클을 다 채우고 아직 결제 안 한 자녀가 있으면, 더 이상 신청을 추가할 수 없게 막아요.
+      // (이미 선택했던 날짜를 취소하는 건 계속 가능해요.)
+      const blockedChild = account.children.find(
+        (c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleUsed || 0) >= getChildQuota(c)
+      );
+      if (blockedChild) {
+        setQuotaBlockedMsg(`${blockedChild.name}(이)가 이번 사이클 신청 횟수를 다 채웠어요. 결제를 완료하면 계속 신청할 수 있어요.`);
+        setTimeout(() => setQuotaBlockedMsg(""), 3500);
+        return;
+      }
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(day)) {
@@ -3815,6 +3853,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
             toggleDay={toggleDay}
             usedCount={usedCount}
             familyChildren={account.children}
+            quotaBlockedMsg={quotaBlockedMsg}
             setDetailDay={setDetailDay}
             isBeforeServiceStart={isBeforeServiceStart}
             onCopyPreviousMonth={handleCopyPreviousMonthClick}
@@ -3905,7 +3944,7 @@ function TabButton({ icon, label, active, onClick }) {
   );
 }
 
-function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, monthLabel: viewMonthLabel, monthOffset, onPrevMonth, onNextMonth, selected, toggleDay, usedCount, familyChildren, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, t }) {
+function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, monthLabel: viewMonthLabel, monthOffset, onPrevMonth, onNextMonth, selected, toggleDay, usedCount, familyChildren, quotaBlockedMsg, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, t }) {
   return (
     <div>
       {typeof monthOffset === "number" && (
@@ -3972,6 +4011,12 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
       {availableDays.length === 0 && (
         <div style={{ fontSize: 13, color: "#9AA39A", padding: "16px 2px", textAlign: "center", background: "#F7F9F6", borderRadius: 12, marginBottom: 10 }}>
           {viewMonthLabel} 메뉴가 아직 준비되지 않았어요. 관리자가 메뉴를 등록하면 여기서 신청할 수 있어요.
+        </div>
+      )}
+
+      {quotaBlockedMsg && (
+        <div style={{ fontSize: 12.5, color: "#C0392B", background: "#FDECEA", borderRadius: 10, padding: "10px 12px", marginBottom: 10, fontWeight: 600 }}>
+          {quotaBlockedMsg}
         </div>
       )}
 
