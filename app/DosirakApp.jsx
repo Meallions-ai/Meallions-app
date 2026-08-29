@@ -4079,7 +4079,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
         <div style={styles.headerTop}>
           <img src={LOGO_SRC} alt="MEALLIONS" style={styles.logoImgHeader} />
           <div style={{ flex: 1 }}>
-            <div style={styles.brandSub}>{monthLabelLocalized(activeYear, activeMonth, language)} · {account.parentName}</div>
+            <div style={styles.brandSub}>{account.parentName}</div>
           </div>
           {canInstall && (
             <button onClick={onInstallClick} style={styles.installBtn} title={t("common.install")}>
