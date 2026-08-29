@@ -4521,7 +4521,7 @@ function MenuBoardView({ menusByMonth, activeYear, activeMonth, language, t }) {
 
 // 결제 — 자녀를 체크해서 한 번에 결제하는 전용 화면
 function PaymentView({ children, selectedChildIds, onToggleChild, onCheckout, t }) {
-  const EARLY_PAY_WINDOW = 3; // 사이클이 끝나기 전이어도, 남은 횟수가 이 값 이하면(예: 12회 중 9회 사용 시점부터) 미리 결제할 수 있어요.
+  const EARLY_PAY_RATIO = 0.3; // 사이클이 끝나기 전이어도, 남은 횟수가 자녀별 총 횟수의 30% 이하면(예: 12회면 9회 사용 시점부터, 6회면 4회 사용 시점부터) 미리 결제할 수 있어요.
   return (
     <div>
       <div style={styles.sectionTitle}>{t("payment.title")}</div>
@@ -4534,7 +4534,7 @@ function PaymentView({ children, selectedChildIds, onToggleChild, onCheckout, t 
           const cycleUsed = child.cycleUsed || 0;
           const remaining = Math.max(0, childQuota - cycleUsed);
           const alreadyHandled = status !== "unpaid"; // 이미 결제완료/입금확인중
-          const eligibleEarly = !alreadyHandled && remaining <= EARLY_PAY_WINDOW; // 사이클 종료 전이어도 얼마 안 남았으면 결제 가능
+          const eligibleEarly = !alreadyHandled && remaining <= childQuota * EARLY_PAY_RATIO; // 사이클 종료 전이어도 30% 이하로 남았으면 결제 가능
           const isDue = cycleUsed >= childQuota;
           const locked = alreadyHandled || !eligibleEarly; // 아직 많이 남았으면 선택 불가(회색 처리)
           return (
