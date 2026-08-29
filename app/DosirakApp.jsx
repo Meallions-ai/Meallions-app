@@ -1380,17 +1380,21 @@ function AppInner() {
   const loadMyAccount = async (userId) => {
     try {
       // 방금 회원가입한 직후라면, 로그인 세션은 이미 생겼는데 프로필/자녀 정보는 아직 저장되는
-      // 중일 수 있어요(찰나의 타이밍 차이). 그래서 바로 실패하지 않고, 짧게 몇 번 다시 시도해봐요.
+      // 중일 수 있어요(찰나의 타이밍 차이). 그래서 바로 실패하지 않고, 넉넉하게 몇 번 다시 시도해봐요.
       let profile;
       let lastErr;
-      for (let attempt = 0; attempt < 4; attempt++) {
+      for (let attempt = 0; attempt < 8; attempt++) {
         try {
+          if (attempt > 0) {
+            // 로그인 세션 자체가 아직 완전히 자리잡지 않았을 가능성도 있어서, 재시도 전에 세션을 한 번 더 확인해요.
+            await api.supabase.auth.getSession();
+          }
           profile = await api.getMyProfile(userId);
           lastErr = null;
           break;
         } catch (e) {
           lastErr = e;
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 800));
         }
       }
       if (!profile) throw lastErr;
