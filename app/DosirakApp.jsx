@@ -3257,7 +3257,7 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
           <img src={LOGO_SRC} alt="MEALLIONS" style={styles.logoImgHeader} />
           <div style={{ flex: 1 }}>
             <div style={styles.brandSub}>
-              {activeLabel} · <span style={styles.adminBadge}>관리자 모드</span>
+              <span style={styles.adminBadge}>관리자 모드</span>
             </div>
           </div>
           <LanguageSelect language={language} setLanguage={setLanguage} t={t} compact />
