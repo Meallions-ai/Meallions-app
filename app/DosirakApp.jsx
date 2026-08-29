@@ -177,6 +177,7 @@ const TRANSLATIONS = {
     "order.statusDue": "결제 필요",
     "order.menuNotReady": "{month} 메뉴가 아직 준비되지 않았어요. 관리자가 메뉴를 등록하면 여기서 신청할 수 있어요.",
     "order.quotaBlocked": "{name}(이)가 이번 사이클 신청 횟수를 다 채웠어요. 결제를 완료하면 계속 신청할 수 있어요.",
+    "order.needsFirstPayment": "{name}(은)는 아직 결제 전이에요. 결제탭에서 먼저 결제하면 그때부터 신청할 수 있어요.",
     "push.newNoticeTitle": "📢 새 공지사항",
     "push.menuUpdateTitle": "🍱 메뉴판이 업데이트됐어요",
     "push.menuUpdateBody": "새로 등록된 메뉴를 확인해보세요.",
@@ -422,6 +423,7 @@ const TRANSLATIONS = {
     "order.statusDue": "Payment due",
     "order.menuNotReady": "The {month} menu isn't ready yet. Once the admin adds it, you can order here.",
     "order.quotaBlocked": "{name} has used up this cycle's order count. Once payment is completed, you can order again.",
+    "order.needsFirstPayment": "{name} hasn't paid yet. Pay in the payment tab first, then you can start ordering.",
     "push.newNoticeTitle": "📢 New notice",
     "push.menuUpdateTitle": "🍱 The menu has been updated",
     "push.menuUpdateBody": "Check out the newly added menu.",
@@ -665,6 +667,7 @@ const TRANSLATIONS = {
     "order.statusDue": "Paiement requis",
     "order.menuNotReady": "Le menu de {month} n'est pas encore prêt. Une fois ajouté par l'administrateur, vous pourrez commander ici.",
     "order.quotaBlocked": "{name} a épuisé le nombre de commandes de ce cycle. Une fois le paiement effectué, vous pourrez continuer à commander.",
+    "order.needsFirstPayment": "{name} n'a pas encore payé. Payez d'abord dans l'onglet paiement, puis vous pourrez commander.",
     "push.newNoticeTitle": "📢 Nouvelle annonce",
     "push.menuUpdateTitle": "🍱 Le menu a été mis à jour",
     "push.menuUpdateBody": "Découvrez le nouveau menu ajouté.",
@@ -908,6 +911,7 @@ const TRANSLATIONS = {
     "order.statusDue": "需要付款",
     "order.menuNotReady": "{month}的菜单还没准备好。管理员添加后就可以在这里申请了。",
     "order.quotaBlocked": "{name}本周期的申请次数已用完。完成付款后即可继续申请。",
+    "order.needsFirstPayment": "{name}还没有付款。请先在付款页面完成付款，之后即可开始申请。",
     "push.newNoticeTitle": "📢 新公告",
     "push.menuUpdateTitle": "🍱 菜单已更新",
     "push.menuUpdateBody": "快来看看新上线的菜单吧。",
@@ -1438,10 +1442,14 @@ function AppInner() {
           cycleUsed: cycleUsage[c.id]?.used || 0,
           cycleSkipped: cycleUsage[c.id]?.skipped || 0,
           cycleCommitted: cycleUsage[c.id]?.committed || 0,
+          hasEverPaid: !!paymentByChild[c.id], // 지금까지 결제 기록이 한 번도 없으면 false — 선결제 필요 여부 판단용
           payment: paymentByChild[c.id] || { status: "unpaid", amount: 0, method: null },
         })),
         order,
-        ordersByMonth: { [activeKey]: order || [], [nextKey]: nextOrder || [] },
+        // 주의: order/nextOrder가 null이면 "아직 신청 기록 자체가 없음"(→ 화면에서 기본값인 전체 체크로 보여줘야 함)이고,
+        // 빈 배열([])이면 "학부모가 전부 체크 해제함"(→ 진짜로 하나도 선택 안 된 상태)이에요. 이 둘을 구분하기 위해
+        // 여기서 || []로 뭉개지 않고, null은 null 그대로 남겨둬요.
+        ordersByMonth: { [activeKey]: order, [nextKey]: nextOrder },
       });
 
       // 이 세션에서 처음 로드된 거라면 언어를 서로 맞춰줘요.
@@ -4220,6 +4228,13 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
     if (isSkipLocked(viewYear, viewMonth, day) || isBeforeServiceStart(viewYear, viewMonth, day)) return;
     const isAdding = !selected.has(day);
     if (isAdding) {
+      // 선결제 원칙: 한 번도 결제한 적 없는 자녀가 있으면, 먼저 결제해야만 신청을 시작할 수 있게 막아요.
+      const unpaidNewChild = account.children.find((c) => !c.hasEverPaid);
+      if (unpaidNewChild) {
+        setQuotaBlockedMsg(t("order.needsFirstPayment", { name: unpaidNewChild.name }));
+        setTimeout(() => setQuotaBlockedMsg(""), 3500);
+        return;
+      }
       // 이미 (실제 배송 여부와 상관없이) 체크해둔 날짜 총합이 사이클 횟수를 다 채웠고 아직 결제 안 한
       // 자녀가 있으면, 더 이상 신청을 추가할 수 없게 막아요. (이미 선택했던 날짜를 취소하는 건 계속 가능해요.)
       const blockedChild = account.children.find(
@@ -4496,6 +4511,12 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
         </div>
       </div>
 
+      {familyChildren && familyChildren.some((c) => !c.hasEverPaid) && (
+        <div style={{ fontSize: 12.5, color: "#C0392B", background: "#FCEBE9", borderRadius: 10, padding: "10px 12px", marginBottom: 10, fontWeight: 600 }}>
+          {t("order.needsFirstPayment", { name: familyChildren.find((c) => !c.hasEverPaid)?.name })}
+        </div>
+      )}
+
       {familyChildren && familyChildren.length > 0 && (
         <div style={{ ...styles.profileCard, marginTop: 10, marginBottom: 4 }}>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: "#7C8A7C", marginBottom: 10 }}>{t("order.cycleStatusTitle")}</div>
@@ -4506,7 +4527,7 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
               const used = child.cycleCommitted ?? child.cycleUsed ?? 0;
               const remaining = Math.max(0, quota - used);
               const percent = Math.min(100, Math.round((used / quota) * 100));
-              const isDue = used >= quota;
+              const isDue = !child.hasEverPaid || used >= quota;
               const isSoon = !isDue && remaining <= quota * 0.3;
               const barColor = isDue ? "#C0392B" : isSoon ? "#D97757" : "#4F7A44";
               const statusText = isDue ? t("order.statusDue") : isSoon ? t("order.statusSoon") : t("order.statusNormal");
@@ -4736,8 +4757,9 @@ function PaymentView({ children, selectedChildIds, onToggleChild, onCheckout, t 
           const cycleUsed = child.cycleCommitted ?? child.cycleUsed ?? 0;
           const remaining = Math.max(0, childQuota - cycleUsed);
           const alreadyHandled = status !== "unpaid"; // 이미 결제완료/입금확인중
-          const eligibleEarly = !alreadyHandled && remaining <= childQuota * EARLY_PAY_RATIO; // 사이클 종료 전이어도 30% 이하로 남았으면 결제 가능
-          const isDue = cycleUsed >= childQuota;
+          // 선결제 원칙: 한 번도 결제한 적 없는 자녀는 신청을 아직 안 했어도(못 했으니까) 바로 결제할 수 있어야 해요.
+          const eligibleEarly = !alreadyHandled && (!child.hasEverPaid || remaining <= childQuota * EARLY_PAY_RATIO); // 사이클 종료 전이어도 30% 이하로 남았으면 결제 가능
+          const isDue = !child.hasEverPaid || cycleUsed >= childQuota;
           const locked = alreadyHandled || !eligibleEarly; // 아직 많이 남았으면 선택 불가(회색 처리)
           return (
             <button
