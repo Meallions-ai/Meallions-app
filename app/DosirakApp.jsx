@@ -1863,6 +1863,17 @@ function AppInner() {
     try {
       await api.submitPayment(account.id, childId, activeKey, amount, promo);
       await loadMyAccount(account.id); // 새 결제 행의 id와 리셋된 사이클 시작점을 반영하기 위해 다시 불러옴
+      // 관리자 폰으로 바로 알림이 가도록 보내요. (여기서 실패해도 결제 자체는 이미 완료된 거라 조용히 무시해요.)
+      const paidChild = account.children.find((c) => c.id === childId);
+      api
+        .sendPushNotification({
+          title: "💳 새 결제 신청이 있어요",
+          body: `${account.parentName}님이 ${paidChild?.name || "자녀"} 결제를 신청했어요. 입금 확인해주세요.`,
+          url: "/",
+          tag: "meallions-payment",
+          notifyAdmins: true,
+        })
+        .catch(() => {});
       return true;
     } catch (e) {
       setDataError("결제 제출 중 오류가 발생했어요. 인터넷 연결을 확인하고 다시 시도해주세요.");
@@ -2099,6 +2110,8 @@ function AppInner() {
         onDismissDataError={() => setDataError("")}
         language={language}
         setLanguage={setLanguage}
+        pushStatus={pushStatus}
+        onTogglePush={handleTogglePush}
         t={t}
       />
     );
@@ -2886,7 +2899,7 @@ function ReviewsPanel() {
   );
 }
 
-function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, activityLog, onClearActivityLog }) {
+function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, activityLog, onClearActivityLog, pushStatus, onTogglePush }) {
   const [monthlyFee, setMonthlyFee] = useState(String(pricing.monthlyFee));
   const [taxPercent, setTaxPercent] = useState(String(Math.round(pricing.taxRate * 10000) / 100));
   const [totalQuota, setTotalQuota] = useState(String(pricing.totalQuota));
@@ -2917,7 +2930,26 @@ function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdat
 
   return (
     <div>
-      <div style={styles.sectionTitle}>데이터 백업</div>
+      <div style={styles.sectionTitle}>알림</div>
+      <div style={styles.profileCard}>
+        <p style={{ ...styles.helperText, marginTop: 0 }}>
+          켜두면 학부모가 결제를 신청할 때마다 이 기기(폰/컴퓨터)로 바로 알림이 와요. 앱을 안 열어놔도 받을 수 있어요.
+        </p>
+        <PushNotificationToggle
+          pushStatus={pushStatus}
+          onTogglePush={onTogglePush}
+          t={(k) =>
+            ({
+              "profile.notificationsLabel": "알림 받기",
+              "profile.notificationsHelper": "학부모 결제 신청, 공지/메뉴 업데이트 알림을 받아요.",
+              "profile.notificationsUnsupported": "이 브라우저는 알림을 지원하지 않아요.",
+              "profile.notificationsError": "알림 설정 중 오류가 발생했어요.",
+            }[k] || k)
+          }
+        />
+      </div>
+
+      <div style={{ ...styles.sectionTitle, marginTop: 18 }}>데이터 백업</div>
       <div style={{ ...styles.profileCard, background: "#FDF1DD" }}>
         <p style={{ ...styles.helperText, marginTop: 0 }}>
           이 버튼을 누르면 지금 이 순간의 데이터를 파일로 바로 받을 수 있어요. 학부모·자녀·신청내역·결제내역·메뉴·공지·프로모코드가 전부 담긴 JSON 파일이에요.
@@ -3296,7 +3328,7 @@ function MiniBarChart({ data, valueKey, labelKey, color, formatValue }) {
   );
 }
 
-function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, onDeleteMenuMonth, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, onClearActivityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError, language, setLanguage, t }) {
+function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, onDeleteMenuMonth, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, onClearActivityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError, language, setLanguage, pushStatus, onTogglePush, t }) {
   const [tab, setTab] = useState("overview");
   const [overviewView, setOverviewView] = useState("calendar"); // calendar | daily | family — 신청 현황 보기 방식
   const [paymentFilter, setPaymentFilter] = useState("all"); // all | partial (일부만 결제한 가정)
@@ -3865,6 +3897,8 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
             onExportFullBackup={onExportFullBackup}
             activityLog={activityLog}
             onClearActivityLog={onClearActivityLog}
+            pushStatus={pushStatus}
+            onTogglePush={onTogglePush}
           />
         )}
       </main>

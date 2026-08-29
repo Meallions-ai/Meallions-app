@@ -766,11 +766,12 @@ export async function unsubscribeFromPush() {
 
 // 실제 발송 — Supabase 엣지 함수(super-worker)를 호출해요.
 // targetProfileIds를 생략하면 구독된 모든 학부모에게, 배열로 주면 그 사람들에게만 보내요.
+// notifyAdmins: true를 주면 관리자에게만 보내요 (예: 학부모가 결제 신청했을 때 관리자 알림용).
 // messages: { ko: {title, body}, en: {...}, fr: {...}, zh: {...} } 형태로 주면, 받는 사람의 앱 언어
 // 설정에 맞는 문구로 자동으로 골라서 보내줘요. (안 주면 title/body를 모든 사람에게 그대로 보내요.)
-export async function sendPushNotification({ title, body, url, tag, targetProfileIds, messages }) {
+export async function sendPushNotification({ title, body, url, tag, targetProfileIds, messages, notifyAdmins }) {
   const { data, error } = await supabase.functions.invoke("super-worker", {
-    body: { title, body, url, tag, targetProfileIds, messages },
+    body: { title, body, url, tag, targetProfileIds, messages, notifyAdmins },
   });
   if (error) throw error;
   return data;
