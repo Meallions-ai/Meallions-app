@@ -94,6 +94,13 @@ export async function updateRecoveryEmail(newEmail) {
   if (error) throw error;
 }
 
+// 학부모가 앱 언어를 바꾸면, 다음에 로그인했을 때도 그 언어로 뜨도록, 그리고 알림도
+// 그 언어로 보낼 수 있도록 프로필에 저장해둡니다.
+export async function updateLanguage(userId, language) {
+  const { error } = await supabase.from("profiles").update({ language }).eq("id", userId);
+  if (error) throw error;
+}
+
 // 로그인 화면의 "비밀번호를 잊으셨나요?"에서 아이디를 입력하면 호출합니다.
 // 복구 이메일이 등록된 계정이면 재설정 링크를 보내고, 아니면 안내만 해줘요.
 export async function requestPasswordReset(loginId, redirectTo) {
@@ -752,11 +759,13 @@ export async function unsubscribeFromPush() {
   }
 }
 
-// 실제 발송 — Supabase 엣지 함수(send-push-notification)를 호출해요.
+// 실제 발송 — Supabase 엣지 함수(super-worker)를 호출해요.
 // targetProfileIds를 생략하면 구독된 모든 학부모에게, 배열로 주면 그 사람들에게만 보내요.
-export async function sendPushNotification({ title, body, url, tag, targetProfileIds }) {
+// messages: { ko: {title, body}, en: {...}, fr: {...}, zh: {...} } 형태로 주면, 받는 사람의 앱 언어
+// 설정에 맞는 문구로 자동으로 골라서 보내줘요. (안 주면 title/body를 모든 사람에게 그대로 보내요.)
+export async function sendPushNotification({ title, body, url, tag, targetProfileIds, messages }) {
   const { data, error } = await supabase.functions.invoke("super-worker", {
-    body: { title, body, url, tag, targetProfileIds },
+    body: { title, body, url, tag, targetProfileIds, messages },
   });
   if (error) throw error;
   return data;
