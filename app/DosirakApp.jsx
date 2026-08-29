@@ -2876,13 +2876,15 @@ function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdat
       <div style={styles.sectionTitle}>데이터 백업</div>
       <div style={{ ...styles.profileCard, background: "#FDF1DD" }}>
         <p style={{ ...styles.helperText, marginTop: 0 }}>
-          Supabase 무료 플랜은 자동 백업이 없어요. 앱에 문제가 생겼을 때를 대비해, 정기적으로 이 버튼을 눌러 전체 데이터를 파일로 받아두는 걸 추천드려요.
-          학부모·자녀·신청내역·결제내역·메뉴·공지·프로모코드가 전부 담긴 JSON 파일이에요.
+          이 버튼을 누르면 지금 이 순간의 데이터를 파일로 바로 받을 수 있어요. 학부모·자녀·신청내역·결제내역·메뉴·공지·프로모코드가 전부 담긴 JSON 파일이에요.
         </p>
         <button onClick={onExportFullBackup} style={{ ...styles.checkoutBtn, width: "100%" }}>
-          전체 백업 다운로드
+          지금 바로 백업 다운로드
         </button>
       </div>
+
+      <div style={{ ...styles.sectionTitle, marginTop: 18 }}>자동 백업 목록</div>
+      <BackupsListPanel />
 
       <div style={{ ...styles.sectionTitle, marginTop: 22 }}>가격 / 할당량 설정</div>
       <div style={styles.profileCard}>
@@ -2964,6 +2966,78 @@ function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdat
 }
 
 // 관리자 활동 로그 — 평소엔 최근 5개만 접어서 보여주고, 필요하면 펼쳐볼 수 있어요. 쌓인 로그는 한 번에 정리할 수도 있어요.
+// 매주 자동으로 쌓이는 백업 목록을 보여주고, 원하는 시점 걸 골라 다운로드할 수 있게 해줘요.
+function BackupsListPanel() {
+  const [backups, setBackups] = useState(null); // null = 아직 안 불러옴
+  const [loading, setLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    api
+      .getBackupsList()
+      .then(setBackups)
+      .catch(() => setBackups([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleDownload = async (id, createdAt) => {
+    setDownloadingId(id);
+    try {
+      const backup = await api.getBackupData(id);
+      const json = JSON.stringify(backup.data, null, 2);
+      const blob = new Blob([json], { type: "application/json;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const dateLabel = new Date(createdAt).toISOString().slice(0, 10);
+      link.download = `meallions-backup-${dateLabel}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      // 조용히 무시 — 버튼이 눌린 상태로 안 남게만 처리해요.
+    }
+    setDownloadingId(null);
+  };
+
+  return (
+    <div style={styles.profileCard}>
+      {backups === null || loading ? (
+        <div style={{ fontSize: 13, color: "#9AA39A", padding: "10px 2px" }}>불러오는 중...</div>
+      ) : backups.length === 0 ? (
+        <div style={{ fontSize: 13, color: "#9AA39A", padding: "10px 2px" }}>
+          아직 자동 백업이 없어요. 매주 한 번씩 자동으로 쌓일 거예요.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {backups.map((b) => (
+            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", ...styles.adminRow, padding: "10px 12px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#33402F" }}>
+                {new Date(b.created_at).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
+              </div>
+              <button
+                onClick={() => handleDownload(b.id, b.created_at)}
+                disabled={downloadingId === b.id}
+                style={{ ...styles.revokeBtn, width: "auto", padding: "8px 14px", marginTop: 0 }}
+              >
+                {downloadingId === b.id ? "받는 중..." : "다운로드"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <button onClick={load} disabled={loading} style={{ ...styles.revokeBtn, width: "100%", marginTop: 10 }}>
+        {loading ? "새로고침 중..." : "새로고침"}
+      </button>
+    </div>
+  );
+}
+
 function ActivityLogPanel({ activityLog, onClearActivityLog }) {
   const [expanded, setExpanded] = useState(false);
   const [clearArmed, setClearArmed] = useState(false);

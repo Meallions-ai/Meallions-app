@@ -862,3 +862,19 @@ export async function exportFullBackup() {
     settings: settings.data,
   };
 }
+
+// ---------------- 자동 백업 목록 (매주 자동으로 쌓이는 스냅샷) ----------------
+
+// 목록만 가볍게 가져와요 (용량이 큰 data는 다운로드할 때만 따로 불러와요).
+export async function getBackupsList() {
+  const { data, error } = await supabase.from("backups").select("id, created_at").order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+// 특정 백업 하나의 전체 내용을 가져와요 (다운로드 버튼 누를 때).
+export async function getBackupData(id) {
+  const { data, error } = await supabase.from("backups").select("data, created_at").eq("id", id).single();
+  if (error) throw error;
+  return data;
+}
