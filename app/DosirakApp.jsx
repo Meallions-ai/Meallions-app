@@ -4128,13 +4128,17 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
   const viewLabel = monthLabelLocalized(viewYear, viewMonth, language);
   const viewMenus = menusByMonth[viewKey] || {};
   const availableDays = useMemo(() => Object.keys(viewMenus).filter((d) => !viewMenus[d].isHoliday).map(Number).sort((a, b) => a - b), [viewMenus]);
-  const [selected, setSelected] = useState(new Set((account.ordersByMonth && account.ordersByMonth[viewKey]) || availableDays));
+  // 선결제 원칙: 아직 한 번도 결제한 적 없는 자녀가 있으면, 결제 전까지는 캘린더 기본값을
+  // "전부 신청됨"이 아니라 "아무것도 없음"으로 보여줘요 (아직 쓸 수 있는 사이클 자체가 없으니까요).
+  const hasNeverPaidChild = account.children.some((c) => !c.hasEverPaid);
+  const defaultDays = hasNeverPaidChild ? [] : availableDays;
+  const [selected, setSelected] = useState(new Set((account.ordersByMonth && account.ordersByMonth[viewKey]) || defaultDays));
   // 이번 달 ↔ 다음 달 전환 시, 그리고 (관리자의 신청 초기화 등으로) 백그라운드에서 저장된 값이 바뀌었을 때도
-  // 그 달에 저장된 신청 내역(없으면 배송일 전체)으로 다시 맞춰줘요.
+  // 그 달에 저장된 신청 내역(없으면 배송일 전체, 단 미결제면 빈 캘린더)으로 다시 맞춰줘요.
   const savedForView = account.ordersByMonth && account.ordersByMonth[viewKey];
   const savedForViewKey = savedForView ? savedForView.join(",") : "";
   useEffect(() => {
-    setSelected(new Set(savedForView || availableDays));
+    setSelected(new Set(savedForView || defaultDays));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewKey, savedForViewKey]);
   const [detailDay, setDetailDay] = useState(null);
@@ -4160,6 +4164,12 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
   const [copyingPrevMonth, setCopyingPrevMonth] = useState(false);
 
   const handleCopyPreviousMonthClick = async () => {
+    if (hasNeverPaidChild) {
+      const unpaidChild = account.children.find((c) => !c.hasEverPaid);
+      setQuotaBlockedMsg(t("order.needsFirstPayment", { name: unpaidChild?.name }));
+      setTimeout(() => setQuotaBlockedMsg(""), 3500);
+      return;
+    }
     setCopyingPrevMonth(true);
     const ratioByWeekday = await onCopyPreviousMonth(viewYear, viewMonth);
     if (ratioByWeekday) {
