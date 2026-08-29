@@ -1379,19 +1379,50 @@ function AppInner() {
   // 세션이 생기면 내 프로필(+자녀, 해당월 신청내역, 결제상태)을 불러옴
   const loadMyAccount = async (userId) => {
     try {
-      const profile = await api.getMyProfile(userId);
+      // 방금 회원가입한 직후라면, 로그인 세션은 이미 생겼는데 프로필/자녀 정보는 아직 저장되는
+      // 중일 수 있어요(찰나의 타이밍 차이). 그래서 바로 실패하지 않고, 짧게 몇 번 다시 시도해봐요.
+      let profile;
+      let lastErr;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          profile = await api.getMyProfile(userId);
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+      if (!profile) throw lastErr;
+
       // 사이클 종료 1주일 전부터 다음 달 신청도 미리 받기 때문에, 이번 달뿐 아니라 다음 달 신청 내역도 함께 불러와요.
       const nextDate = new Date(activeYear, activeMonth, 1);
       const nextKey = monthKey(nextDate.getFullYear(), nextDate.getMonth() + 1);
-      const [order, nextOrder] = await Promise.all([
-        api.getOrder(userId, activeKey),
-        api.getOrder(userId, nextKey),
-      ]);
+
+      // 신청 내역, 결제/사이클 계산은 각각 따로 실패해도(예: 신규 가입 직후 일시적 문제) 프로필 자체는
+      // 정상적으로 뜨도록, 이 부분만 따로 감싸서 실패해도 기본값으로 계속 진행해요.
+      let order = null, nextOrder = null;
+      try {
+        [order, nextOrder] = await Promise.all([
+          api.getOrder(userId, activeKey),
+          api.getOrder(userId, nextKey),
+        ]);
+      } catch (e) {
+        console.error("신청 내역 불러오기 실패:", e);
+      }
+
       const childIds = profile.children.map((c) => c.id);
-      const [paymentByChild, cycleUsage] = await Promise.all([
-        api.getLatestPayments(childIds),
-        api.getCycleUsage(userId, profile.children),
-      ]);
+      let paymentByChild = {};
+      let cycleUsage = {};
+      try {
+        [paymentByChild, cycleUsage] = await Promise.all([
+          api.getLatestPayments(childIds),
+          api.getCycleUsage(userId, profile.children),
+        ]);
+      } catch (e) {
+        console.error("결제/사이클 정보 불러오기 실패:", e);
+      }
+
       setAccount({
         id: profile.id,
         role: profile.role,
@@ -1428,6 +1459,7 @@ function AppInner() {
         }
       }
     } catch (e) {
+      console.error("내 정보 불러오기 실패:", e);
       setDataError("내 정보를 불러오는 중 오류가 발생했어요. 새로고침 후 다시 시도해주세요.");
     }
   };
