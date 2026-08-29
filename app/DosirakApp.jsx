@@ -1600,6 +1600,13 @@ function AppInner() {
   useEffect(() => {
     if (!session || !account) return;
     const refreshQuietly = () => {
+      // 지금 어딘가 입력칸(텍스트/textarea)에 커서가 가 있으면(=한창 타이핑 중일 수 있으면) 건너뛰어요.
+      // 화면이 갱신되면서 입력칸 값이 다시 그려지면, 한글처럼 여러 키를 조합해서 만드는 입력이
+      // 중간에 끊겨버릴 수 있어서예요.
+      const active = document.activeElement;
+      const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
+      if (isTyping) return;
+
       if (account.role === "admin") {
         loadAdminAccounts();
       } else {
