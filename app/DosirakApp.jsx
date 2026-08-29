@@ -1390,6 +1390,7 @@ function AppInner() {
           ...c,
           cycleUsed: cycleUsage[c.id]?.used || 0,
           cycleSkipped: cycleUsage[c.id]?.skipped || 0,
+          cycleCommitted: cycleUsage[c.id]?.committed || 0,
           payment: paymentByChild[c.id] || { status: "unpaid", amount: 0, method: null },
         })),
         order,
@@ -1749,6 +1750,7 @@ function AppInner() {
           ...c,
           cycleUsed: cycleUsage[c.id]?.used ?? c.cycleUsed,
           cycleSkipped: cycleUsage[c.id]?.skipped ?? c.cycleSkipped,
+          cycleCommitted: cycleUsage[c.id]?.committed ?? c.cycleCommitted,
         })),
       }));
     } catch (e) {
@@ -4027,10 +4029,10 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
     if (isSkipLocked(viewYear, viewMonth, day) || isBeforeServiceStart(viewYear, viewMonth, day)) return;
     const isAdding = !selected.has(day);
     if (isAdding) {
-      // 이미 사이클을 다 채우고 아직 결제 안 한 자녀가 있으면, 더 이상 신청을 추가할 수 없게 막아요.
-      // (이미 선택했던 날짜를 취소하는 건 계속 가능해요.)
+      // 이미 (실제 배송 여부와 상관없이) 체크해둔 날짜 총합이 사이클 횟수를 다 채웠고 아직 결제 안 한
+      // 자녀가 있으면, 더 이상 신청을 추가할 수 없게 막아요. (이미 선택했던 날짜를 취소하는 건 계속 가능해요.)
       const blockedChild = account.children.find(
-        (c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleUsed || 0) >= getChildQuota(c)
+        (c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleCommitted ?? c.cycleUsed ?? 0) >= getChildQuota(c)
       );
       if (blockedChild) {
         setQuotaBlockedMsg(t("order.quotaBlocked", { name: blockedChild.name }));
