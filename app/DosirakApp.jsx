@@ -2354,13 +2354,13 @@ function PrivacyPolicyScreen({ onBack, t }) {
   );
 }
 
-function LanguageSelect({ language, setLanguage, t }) {
+function LanguageSelect({ language, setLanguage, t, compact = false }) {
   return (
-    <div style={styles.languageSelectWrap}>
+    <div style={compact ? undefined : styles.languageSelectWrap}>
       <select
         value={language}
         onChange={(e) => setLanguage(e.target.value)}
-        style={styles.languageSelect}
+        style={compact ? styles.languageSelectCompact : styles.languageSelect}
         aria-label={t("login.language")}
       >
         {LANGUAGES.map((l) => (
@@ -4086,6 +4086,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
               {t("common.install")}
             </button>
           )}
+          <LanguageSelect language={language} setLanguage={setLanguage} t={t} compact />
           <button onClick={forceAppRefresh} style={styles.logoutBtn} title="새로고침">
             <RefreshCw size={16} color="#4F7A44" />
           </button>
@@ -5764,6 +5765,16 @@ const styles = {
     fontSize: 12.5,
     color: "#5C6A5C",
     fontWeight: 600,
+  },
+  languageSelectCompact: {
+    background: "#F2F6F2",
+    border: "1.5px solid #E2E7E2",
+    borderRadius: 8,
+    padding: "5px 6px",
+    fontSize: 11.5,
+    color: "#5C6A5C",
+    fontWeight: 700,
+    height: 34,
   },
   loginTitle: { fontSize: 20, fontWeight: 800, color: "#33402F", marginTop: 12 },
   loginSub: { fontSize: 13, color: "#7C8A7C", marginTop: 8, lineHeight: 1.6 },
