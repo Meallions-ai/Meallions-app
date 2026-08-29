@@ -4910,6 +4910,41 @@ function ReviewPopup({ onClose, onSubmit, t }) {
   );
 }
 
+// 글자를 입력할 때마다 바로바로 서버에 저장하면(특히 네트워크가 느릴 때) 타이핑이 버벅여요.
+// 그래서 화면엔 즉시 반영하되, 실제 저장은 "타이핑을 잠깐 멈췄을 때"(또는 다른 곳 클릭할 때)만 하도록 만든 입력창이에요.
+function DebouncedInput({ value, onCommit, as = "input", delay = 500, ...props }) {
+  const [local, setLocal] = useState(value ?? "");
+  const timerRef = useRef(null);
+  const lastCommittedRef = useRef(value ?? "");
+
+  // 바깥에서(예: 다른 자리에서 저장 완료 후 새로고침되며) 값이 바뀌면 로컬 값도 맞춰줘요.
+  useEffect(() => {
+    if (value !== lastCommittedRef.current) {
+      setLocal(value ?? "");
+      lastCommittedRef.current = value ?? "";
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const commit = (val) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    lastCommittedRef.current = val;
+    onCommit(val);
+  };
+
+  const handleChange = (e) => {
+    const newVal = e.target.value;
+    setLocal(newVal);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => commit(newVal), delay);
+  };
+
+  const handleBlur = () => commit(local);
+
+  const Tag = as;
+  return <Tag {...props} value={local} onChange={handleChange} onBlur={handleBlur} />;
+}
+
 function AdminMenuEditor({ menusByMonth, onUpdateMenus, onDeleteMenuMonth, onSendMenuNotification, activeYear, activeMonth }) {
   const [offset, setOffset] = useState(0); // 0=이번달, 1=다음달 (월별 보기에서만 사용)
   const [newDay, setNewDay] = useState("");
@@ -5062,30 +5097,30 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onDeleteMenuMonth, onSen
                       {isHoliday ? "✓ 공휴일/방학으로 등록됨" : "공휴일/방학으로 등록"}
                     </button>
                     {isHoliday ? (
-                      <input
+                      <DebouncedInput
                         style={{ ...styles.menuEditInput, marginTop: 6, borderColor: "#F2C9C2", color: "#C0392B" }}
                         value={menu.holidayLabel || ""}
-                        onChange={(e) => updateFieldFor(entry.key, entry.day, entryMenus, "holidayLabel", e.target.value)}
+                        onCommit={(v) => updateFieldFor(entry.key, entry.day, entryMenus, "holidayLabel", v)}
                         placeholder="예: HAPPY BC Day, 겨울방학"
                       />
                     ) : (
                       <>
-                        <input
+                        <DebouncedInput
                           style={{ ...styles.menuEditInput, marginTop: 6 }}
                           value={menu.main}
-                          onChange={(e) => updateFieldFor(entry.key, entry.day, entryMenus, "main", e.target.value)}
+                          onCommit={(v) => updateFieldFor(entry.key, entry.day, entryMenus, "main", v)}
                           placeholder="메인 메뉴"
                         />
-                        <input
+                        <DebouncedInput
                           style={{ ...styles.menuEditInput, marginTop: 6 }}
                           value={menu.side}
-                          onChange={(e) => updateFieldFor(entry.key, entry.day, entryMenus, "side", e.target.value)}
+                          onCommit={(v) => updateFieldFor(entry.key, entry.day, entryMenus, "side", v)}
                           placeholder="사이드 메뉴"
                         />
-                        <input
+                        <DebouncedInput
                           style={{ ...styles.menuEditInput, marginTop: 6 }}
                           value={menu.fruit || ""}
-                          onChange={(e) => updateFieldFor(entry.key, entry.day, entryMenus, "fruit", e.target.value)}
+                          onCommit={(v) => updateFieldFor(entry.key, entry.day, entryMenus, "fruit", v)}
                           placeholder="과일"
                         />
                       </>
@@ -5124,30 +5159,30 @@ function AdminMenuEditor({ menusByMonth, onUpdateMenus, onDeleteMenuMonth, onSen
                       {isHoliday ? "✓ 공휴일/방학으로 등록됨" : "공휴일/방학으로 등록"}
                     </button>
                     {isHoliday ? (
-                      <input
+                      <DebouncedInput
                         style={{ ...styles.menuEditInput, marginTop: 6, borderColor: "#F2C9C2", color: "#C0392B" }}
                         value={menus[d].holidayLabel || ""}
-                        onChange={(e) => updateField(d, "holidayLabel", e.target.value)}
+                        onCommit={(v) => updateField(d, "holidayLabel", v)}
                         placeholder="예: HAPPY BC Day, 겨울방학"
                       />
                     ) : (
                       <>
-                        <input
+                        <DebouncedInput
                           style={{ ...styles.menuEditInput, marginTop: 6 }}
                           value={menus[d].main}
-                          onChange={(e) => updateField(d, "main", e.target.value)}
+                          onCommit={(v) => updateField(d, "main", v)}
                           placeholder="메인 메뉴"
                         />
-                        <input
+                        <DebouncedInput
                           style={{ ...styles.menuEditInput, marginTop: 6 }}
                           value={menus[d].side}
-                          onChange={(e) => updateField(d, "side", e.target.value)}
+                          onCommit={(v) => updateField(d, "side", v)}
                           placeholder="사이드 메뉴"
                         />
-                        <input
+                        <DebouncedInput
                           style={{ ...styles.menuEditInput, marginTop: 6 }}
                           value={menus[d].fruit || ""}
-                          onChange={(e) => updateField(d, "fruit", e.target.value)}
+                          onCommit={(v) => updateField(d, "fruit", v)}
                           placeholder="과일"
                         />
                       </>
@@ -5307,9 +5342,9 @@ function AdminNoticeEditor({ notices, onUpdateNotices, onSendNoticeNotification 
         {notices.map((n) => (
           <div key={n.id} style={styles.noticeEditCard} className="fade-item">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <input
+              <DebouncedInput
                 value={n.date}
-                onChange={(e) => updateField(n.id, "date", e.target.value)}
+                onCommit={(v) => updateField(n.id, "date", v)}
                 style={{ ...styles.menuEditInput, width: 90, fontWeight: 700, color: "#4F7A44" }}
                 placeholder="07.14"
               />
@@ -5317,15 +5352,16 @@ function AdminNoticeEditor({ notices, onUpdateNotices, onSendNoticeNotification 
                 <X size={14} /> 삭제
               </button>
             </div>
-            <input
+            <DebouncedInput
               value={n.title}
-              onChange={(e) => updateField(n.id, "title", e.target.value)}
+              onCommit={(v) => updateField(n.id, "title", v)}
               style={styles.menuEditInput}
               placeholder="공지 제목"
             />
-            <textarea
+            <DebouncedInput
+              as="textarea"
               value={n.body}
-              onChange={(e) => updateField(n.id, "body", e.target.value)}
+              onCommit={(v) => updateField(n.id, "body", v)}
               style={{ ...styles.menuEditInput, marginTop: 6, height: 72, resize: "none", paddingTop: 10 }}
               placeholder="공지 내용"
             />
