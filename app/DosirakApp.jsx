@@ -172,6 +172,9 @@ const TRANSLATIONS = {
     "order.skipped": "스킵 {skipped}회",
     "order.remaining": "남음 {remaining}회",
     "order.totalCount": "(총 {total}회)",
+    "order.statusNormal": "진행중",
+    "order.statusSoon": "곧 결제 필요",
+    "order.statusDue": "결제 필요",
     "order.menuNotReady": "{month} 메뉴가 아직 준비되지 않았어요. 관리자가 메뉴를 등록하면 여기서 신청할 수 있어요.",
     "order.quotaBlocked": "{name}(이)가 이번 사이클 신청 횟수를 다 채웠어요. 결제를 완료하면 계속 신청할 수 있어요.",
     "push.newNoticeTitle": "📢 새 공지사항",
@@ -414,6 +417,9 @@ const TRANSLATIONS = {
     "order.skipped": "Skipped {skipped}",
     "order.remaining": "Remaining {remaining}",
     "order.totalCount": "(of {total})",
+    "order.statusNormal": "In progress",
+    "order.statusSoon": "Payment due soon",
+    "order.statusDue": "Payment due",
     "order.menuNotReady": "The {month} menu isn't ready yet. Once the admin adds it, you can order here.",
     "order.quotaBlocked": "{name} has used up this cycle's order count. Once payment is completed, you can order again.",
     "push.newNoticeTitle": "📢 New notice",
@@ -654,6 +660,9 @@ const TRANSLATIONS = {
     "order.skipped": "Ignoré {skipped}",
     "order.remaining": "Restant {remaining}",
     "order.totalCount": "(sur {total})",
+    "order.statusNormal": "En cours",
+    "order.statusSoon": "Paiement bientôt requis",
+    "order.statusDue": "Paiement requis",
     "order.menuNotReady": "Le menu de {month} n'est pas encore prêt. Une fois ajouté par l'administrateur, vous pourrez commander ici.",
     "order.quotaBlocked": "{name} a épuisé le nombre de commandes de ce cycle. Une fois le paiement effectué, vous pourrez continuer à commander.",
     "push.newNoticeTitle": "📢 Nouvelle annonce",
@@ -894,6 +903,9 @@ const TRANSLATIONS = {
     "order.skipped": "跳过 {skipped} 次",
     "order.remaining": "剩余 {remaining} 次",
     "order.totalCount": "(共 {total} 次)",
+    "order.statusNormal": "进行中",
+    "order.statusSoon": "即将需要付款",
+    "order.statusDue": "需要付款",
     "order.menuNotReady": "{month}的菜单还没准备好。管理员添加后就可以在这里申请了。",
     "order.quotaBlocked": "{name}本周期的申请次数已用完。完成付款后即可继续申请。",
     "push.newNoticeTitle": "📢 新公告",
@@ -4311,20 +4323,32 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
 
       {familyChildren && familyChildren.length > 0 && (
         <div style={{ ...styles.profileCard, marginTop: 10, marginBottom: 4 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#7C8A7C", marginBottom: 8 }}>{t("order.cycleStatusTitle")}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#7C8A7C", marginBottom: 10 }}>{t("order.cycleStatusTitle")}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {familyChildren.map((child) => {
               const quota = getChildQuota(child);
               const used = child.cycleUsed || 0;
               const remaining = Math.max(0, quota - used);
+              const percent = Math.min(100, Math.round((used / quota) * 100));
+              const isDue = used >= quota;
+              const isSoon = !isDue && remaining <= quota * 0.3;
+              const barColor = isDue ? "#C0392B" : isSoon ? "#D97757" : "#4F7A44";
+              const statusText = isDue ? t("order.statusDue") : isSoon ? t("order.statusSoon") : t("order.statusNormal");
+              const statusBg = isDue ? "#FCEBE9" : isSoon ? "#FDF1DD" : "#E7F3EA";
               return (
-                <div key={child.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#33402F" }}>{child.name}</div>
-                  <div style={{ fontSize: 12, color: "#7C8A7C", display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <span>{t("order.used", { used })}</span>
-                    <span>·</span>
-                    <span style={{ fontWeight: 700, color: "#4F7A44" }}>{t("order.remaining", { remaining })}</span>
-                    <span style={{ color: "#C9CFC9" }}>{t("order.totalCount", { total: quota })}</span>
+                <div key={child.id}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: "#33402F" }}>{child.name}</div>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, color: barColor, background: statusBg, borderRadius: 6, padding: "2px 7px" }}>
+                      {statusText}
+                    </div>
+                  </div>
+                  <div style={{ height: 8, background: "#F0F2EF", borderRadius: 6, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${percent}%`, background: barColor, borderRadius: 6, transition: "width 0.3s ease" }} />
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "#9AA39A", marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+                    <span>{t("order.used", { used })} {t("order.totalCount", { total: quota })}</span>
+                    <span style={{ fontWeight: 700, color: barColor }}>{t("order.remaining", { remaining })}</span>
                   </div>
                 </div>
               );
