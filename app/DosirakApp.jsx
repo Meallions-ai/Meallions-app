@@ -203,6 +203,7 @@ const TRANSLATIONS = {
     "profile.addressTitle": "배송 주소",
     "profile.recoveryEmailTitle": "복구 이메일",
     "profile.notificationsTitle": "알림",
+    "profile.languageTitle": "언어",
     "profile.notificationsLabel": "공지·메뉴판 업데이트 알림",
     "profile.notificationsHelper": "켜면 앱을 안 켜도 새 소식을 바로 알려드려요.",
     "profile.notificationsUnsupported": "이 브라우저는 알림 기능을 지원하지 않아요.",
@@ -442,7 +443,7 @@ const TRANSLATIONS = {
     "profile.addressTitle": "Delivery Address",
     "profile.recoveryEmailTitle": "Recovery Email",
     "profile.notificationsTitle": "Notifications",
-    "profile.notificationsLabel": "Notice & menu update alerts",
+    "profile.languageTitle": "Language",
     "profile.notificationsHelper": "When on, you'll be notified of new updates even with the app closed.",
     "profile.notificationsUnsupported": "This browser doesn't support notifications.",
     "profile.notificationsError": "Something went wrong updating notifications. Please try again.",
@@ -681,6 +682,7 @@ const TRANSLATIONS = {
     "profile.addressTitle": "Adresse de livraison",
     "profile.recoveryEmailTitle": "E-mail de récupération",
     "profile.notificationsTitle": "Notifications",
+    "profile.languageTitle": "Langue",
     "profile.notificationsLabel": "Alertes d'avis et de mise à jour du menu",
     "profile.notificationsHelper": "Une fois activé, vous serez averti des nouveautés même si l'application est fermée.",
     "profile.notificationsUnsupported": "Ce navigateur ne prend pas en charge les notifications.",
@@ -920,6 +922,7 @@ const TRANSLATIONS = {
     "profile.addressTitle": "配送地址",
     "profile.recoveryEmailTitle": "恢复邮箱",
     "profile.notificationsTitle": "通知",
+    "profile.languageTitle": "语言",
     "profile.notificationsLabel": "公告与菜单更新提醒",
     "profile.notificationsHelper": "开启后，即使不打开应用也能收到最新消息。",
     "profile.notificationsUnsupported": "此浏览器不支持通知功能。",
@@ -1279,16 +1282,21 @@ function AppInner() {
 
   // 다국어: localStorage에 저장된 언어가 있으면 그 언어로 시작, 없으면 한국어
   const [language, setLanguageState] = useState("ko");
+  const hasLocalLanguagePrefRef = useRef(false); // 이 기기에 이미 명시적으로 골라둔 언어가 있었는지
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem("meallions-language");
-      if (saved && TRANSLATIONS[saved]) setLanguageState(saved);
+      if (saved && TRANSLATIONS[saved]) {
+        setLanguageState(saved);
+        hasLocalLanguagePrefRef.current = true;
+      }
     } catch (e) {
       // localStorage 접근 불가(예: 서버 사이드 렌더링) 시 기본값(ko) 유지
     }
   }, []);
   const setLanguage = (lang) => {
     setLanguageState(lang);
+    hasLocalLanguagePrefRef.current = true;
     try {
       window.localStorage.setItem("meallions-language", lang);
     } catch (e) {}
@@ -1388,12 +1396,19 @@ function AppInner() {
         ordersByMonth: { [activeKey]: order || [], [nextKey]: nextOrder || [] },
       });
 
-      // 이 세션에서 처음 로드된 거라면(=아직 프로필 언어를 반영 안 했다면), 저장된 언어로 맞춰줘요.
-      // (세션 도중 백그라운드 새로고침 때는 건드리지 않아요 — 방금 바꾼 언어가 도로 덮이면 안 되니까요.)
+      // 이 세션에서 처음 로드된 거라면 언어를 서로 맞춰줘요.
+      // - 이 기기에 이미 명시적으로 골라둔 언어가 있으면(로그인 전 화면에서 방금 고른 것도 포함),
+      //   그 선택을 존중해서 프로필 쪽으로 저장해요 (서버 값으로 덮어쓰지 않아요).
+      // - 이 기기에 아무 기록이 없으면, 프로필에 저장돼 있던 언어를 그대로 받아와요.
       if (!didSyncLanguageFromProfile.current) {
         didSyncLanguageFromProfile.current = true;
-        if (profile.language && TRANSLATIONS[profile.language]) {
+        if (hasLocalLanguagePrefRef.current) {
+          if (profile.language !== language) {
+            api.updateLanguage(profile.id, language).catch(() => {});
+          }
+        } else if (profile.language && TRANSLATIONS[profile.language]) {
           setLanguageState(profile.language);
+          hasLocalLanguagePrefRef.current = true;
           try {
             window.localStorage.setItem("meallions-language", profile.language);
           } catch (e) {}
@@ -2045,6 +2060,7 @@ function AppInner() {
       canInstall={!!installPrompt}
       onInstallClick={handleInstallClick}
       language={language}
+      setLanguage={setLanguage}
       t={t}
     />
   );
@@ -3755,7 +3771,7 @@ function PushNotificationToggle({ pushStatus, onTogglePush, t }) {
   );
 }
 
-function ProfileView({ account, onUpdateChild, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, t }) {
+function ProfileView({ account, onUpdateChild, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, language, setLanguage, t }) {
   const [children, setChildren] = useState(account.children);
   const [address, setAddress] = useState(account.address || "");
   const [saved, setSaved] = useState(false);
@@ -3815,6 +3831,11 @@ function ProfileView({ account, onUpdateChild, onUpdateAddress, onUpdateRecovery
 
       <div style={styles.sectionTitle}>{t("profile.recoveryEmailTitle")}</div>
       <RecoveryEmailField currentAuthEmail={currentAuthEmail} onUpdateRecoveryEmail={onUpdateRecoveryEmail} t={t} />
+
+      <div style={styles.sectionTitle}>{t("profile.languageTitle")}</div>
+      <div style={styles.profileCard}>
+        <LanguageSelect language={language} setLanguage={setLanguage} t={t} />
+      </div>
 
       <div style={styles.sectionTitle}>{t("profile.notificationsTitle")}</div>
       <PushNotificationToggle pushStatus={pushStatus} onTogglePush={onTogglePush} t={t} />
@@ -3895,7 +3916,7 @@ function ProfileView({ account, onUpdateChild, onUpdateAddress, onUpdateRecovery
   );
 }
 
-function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeYear, activeMonth, activeKey, activeLabel, onUpdateChild, onUpdateOrder, onUpdatePayment, onCancelPayment, onDismissPaymentNotice, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, onLogout, dataError, onDismissDataError, canInstall, onInstallClick, onCopyPreviousMonth, language, t }) {
+function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeYear, activeMonth, activeKey, activeLabel, onUpdateChild, onUpdateOrder, onUpdatePayment, onCancelPayment, onDismissPaymentNotice, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, onLogout, dataError, onDismissDataError, canInstall, onInstallClick, onCopyPreviousMonth, language, setLanguage, t }) {
   const [tab, setTab] = useState("order");
   // 신청 탭은 사이클이 끝나기 1주일 전부터 다음 달 신청도 미리 받을 수 있도록, 이번 달/다음 달을 전환할 수 있어요.
   const [monthOffset, setMonthOffset] = useState(0); // 0 = 이번달, 1 = 다음달
@@ -4184,7 +4205,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
           />
         )}
         {tab === "notice" && <NoticeView notices={notices} t={t} />}
-        {tab === "profile" && <ProfileView account={account} onUpdateChild={onUpdateChild} onUpdateAddress={onUpdateAddress} onUpdateRecoveryEmail={onUpdateRecoveryEmail} currentAuthEmail={currentAuthEmail} onViewPrivacyPolicy={onViewPrivacyPolicy} pushStatus={pushStatus} onTogglePush={onTogglePush} t={t} />}
+        {tab === "profile" && <ProfileView account={account} onUpdateChild={onUpdateChild} onUpdateAddress={onUpdateAddress} onUpdateRecoveryEmail={onUpdateRecoveryEmail} currentAuthEmail={currentAuthEmail} onViewPrivacyPolicy={onViewPrivacyPolicy} pushStatus={pushStatus} onTogglePush={onTogglePush} language={language} setLanguage={setLanguage} t={t} />}
       </main>
 
       {detailDay && viewMenus[detailDay] && (
