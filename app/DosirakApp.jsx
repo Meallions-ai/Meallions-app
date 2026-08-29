@@ -2029,6 +2029,9 @@ function AppInner() {
         onLogout={handleLogout}
         dataError={dataError}
         onDismissDataError={() => setDataError("")}
+        language={language}
+        setLanguage={setLanguage}
+        t={t}
       />
     );
   }
@@ -3099,7 +3102,7 @@ function MiniBarChart({ data, valueKey, labelKey, color, formatValue }) {
   );
 }
 
-function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, onDeleteMenuMonth, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError }) {
+function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, onDeleteMenuMonth, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError, language, setLanguage, t }) {
   const [tab, setTab] = useState("overview");
   const [overviewView, setOverviewView] = useState("calendar"); // calendar | daily | family — 신청 현황 보기 방식
   const [paymentFilter, setPaymentFilter] = useState("all"); // all | partial (일부만 결제한 가정)
@@ -3257,6 +3260,7 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
               {activeLabel} · <span style={styles.adminBadge}>관리자 모드</span>
             </div>
           </div>
+          <LanguageSelect language={language} setLanguage={setLanguage} t={t} compact />
           <button onClick={forceAppRefresh} style={styles.logoutBtn} title="새로고침">
             <RefreshCw size={16} color="#4F7A44" />
           </button>
@@ -4078,9 +4082,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
       <header style={styles.header}>
         <div style={styles.headerTop}>
           <img src={LOGO_SRC} alt="MEALLIONS" style={styles.logoImgHeader} />
-          <div style={{ flex: 1 }}>
-            <div style={styles.brandSub}>{account.parentName}</div>
-          </div>
+          <div style={{ flex: 1 }} />
           {canInstall && (
             <button onClick={onInstallClick} style={styles.installBtn} title={t("common.install")}>
               {t("common.install")}
