@@ -3687,7 +3687,7 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
                                     ? styles.paymentBadgePaid
                                     : status === "pending"
                                     ? styles.paymentBadgePending
-                                    : (c.cycleUsed || 0) >= getChildQuota(c)
+                                    : (c.cycleCommitted ?? c.cycleUsed ?? 0) >= getChildQuota(c)
                                     ? styles.paymentBadgeUnpaid
                                     : { background: "#F2F6F2", color: "#7C8A7C" }),
                                 }}
@@ -4143,7 +4143,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
     () =>
       new Set(
         account.children
-          .filter((c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleUsed || 0) >= getChildQuota(c))
+          .filter((c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleCommitted ?? c.cycleUsed ?? 0) >= getChildQuota(c))
           .map((c) => c.id)
       )
   );
@@ -4176,7 +4176,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
   const usedCount = selected.size; // 이번 달 신청 날짜 수 — 참고용 표시일 뿐, 결제 사이클과는 무관해요.
   // 결제는 자녀별로 "마지막 결제 이후 12회를 채웠는지"로 판단해요 (달과 무관하게 누적).
   const childrenDue = account.children.filter(
-    (c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleUsed || 0) >= getChildQuota(c)
+    (c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleCommitted ?? c.cycleUsed ?? 0) >= getChildQuota(c)
   );
   const quotaFullyUsed = childrenDue.length > 0;
   const [dismissQuotaBanner, setDismissQuotaBanner] = useState(false);
@@ -4502,7 +4502,8 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {familyChildren.map((child) => {
               const quota = getChildQuota(child);
-              const used = child.cycleUsed || 0;
+              // 결제 시점 판단과 똑같이(선불이라 체크한 개수 기준), 여기 진행률도 신청해둔 총합으로 보여줘요.
+              const used = child.cycleCommitted ?? child.cycleUsed ?? 0;
               const remaining = Math.max(0, quota - used);
               const percent = Math.min(100, Math.round((used / quota) * 100));
               const isDue = used >= quota;
@@ -4730,7 +4731,9 @@ function PaymentView({ children, selectedChildIds, onToggleChild, onCheckout, t 
           const childQuota = getChildQuota(child);
           const status = child.payment?.status || "unpaid";
           const checked = selectedChildIds.has(child.id);
-          const cycleUsed = child.cycleUsed || 0;
+          // 선불 서비스라서, 결제 시점은 "실제 배송된 날짜"가 아니라 "이미 체크(신청)해둔 날짜 총합"
+          // 기준으로 판단해요. 도시락을 받고 나서 결제하게 되면 사실상 후불이 되어버리니까요.
+          const cycleUsed = child.cycleCommitted ?? child.cycleUsed ?? 0;
           const remaining = Math.max(0, childQuota - cycleUsed);
           const alreadyHandled = status !== "unpaid"; // 이미 결제완료/입금확인중
           const eligibleEarly = !alreadyHandled && remaining <= childQuota * EARLY_PAY_RATIO; // 사이클 종료 전이어도 30% 이하로 남았으면 결제 가능

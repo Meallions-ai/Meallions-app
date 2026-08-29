@@ -187,14 +187,14 @@ export async function getAdminData(yearMonth) {
   }
   const computeCycleUsed = (profileId, child) => {
     const cutoff = getCycleCutoff(child);
-    const now = new Date();
     let count = 0;
     for (const o of ordersByProfile[profileId] || []) {
       const [y, m] = o.year_month.split("-").map(Number);
       for (const day of o.selected_days || []) {
         const date = new Date(y, m - 1, day);
-        // 학부모 화면과 동일하게, 실제로 도시락이 나간(=이미 지난) 날짜만 사용 횟수로 세요.
-        if (date > cutoff && date <= now) count++;
+        // 선불 서비스라서, 실제 배송 여부와 상관없이 이미 체크(신청)해둔 날짜 총합으로 세요.
+        // (학부모 화면의 결제 판단 기준과 동일해요 — 안 그러면 신청은 다 했는데 결제 창이 안 뜨는 것처럼 보여요.)
+        if (date > cutoff) count++;
       }
     }
     return count;
