@@ -472,6 +472,7 @@ export async function getCycleUsage(profileId, children) {
     const cutoff = getCycleCutoff(child);
     let used = 0;
     let skipped = 0;
+    let committed = 0; // 실제 배송 여부와 상관없이, 이미 체크해둔 날짜 총합(과거+미래) — 12회 초과 신청 방지용
     for (const row of menuRows || []) {
       if (row.is_holiday) continue;
       const [y, m] = row.year_month.split("-").map(Number);
@@ -482,12 +483,16 @@ export async function getCycleUsage(profileId, children) {
       // 똑같이 "신청됨"으로 봐요. 실제로 저장된 기록이 있는 달에서는(=한 번이라도 건드렸으면) 체크 안 한
       // 날짜는 마감을 기다리지 않고 스킵 버튼을 누른 즉시 "스킵"으로 셉니다.
       const isSelected = orderSet ? orderSet.has(row.day) : true;
-      // "사용" 횟수는 실제로 도시락이 나간(=날짜가 이미 지난) 날짜만 셉니다. 미래에 미리 체크해둔 날짜는
-      // 아무리 많아도 아직 사용 횟수에 안 들어가고, 그날이 실제로 지나야 비로소 카운트돼요.
-      if (isSelected && date <= now) used++;
-      else if (!isSelected && orderSet) skipped++;
+      if (isSelected) {
+        committed++;
+        // "사용" 횟수는 실제로 도시락이 나간(=날짜가 이미 지난) 날짜만 셉니다. 미래에 미리 체크해둔 날짜는
+        // 아무리 많아도 아직 사용 횟수(=결제 기준)에 안 들어가고, 그날이 실제로 지나야 비로소 카운트돼요.
+        if (date <= now) used++;
+      } else if (orderSet) {
+        skipped++;
+      }
     }
-    cycleUsage[child.id] = { used, skipped };
+    cycleUsage[child.id] = { used, skipped, committed };
   }
   return cycleUsage;
 }
