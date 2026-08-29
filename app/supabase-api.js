@@ -801,6 +801,13 @@ export async function getAdminActivityLog(limit = 100) {
   return data || [];
 }
 
+// 쌓인 관리자 활동 로그를 한 번에 정리할 때 씁니다.
+export async function clearAdminActivityLog() {
+  // delete는 조건이 있어야 하므로, "항상 참"인 조건으로 전체 삭제해요.
+  const { error } = await supabase.from("admin_activity_log").delete().gte("created_at", "1970-01-01");
+  if (error) throw error;
+}
+
 // ---------------- 이용 후기 (결제 완료 직후 팝업, 기존 feedbacks 테이블 재사용) ----------------
 
 export async function submitReview({ profileId, serviceRating, qualityRating, kidsRating, comment }) {

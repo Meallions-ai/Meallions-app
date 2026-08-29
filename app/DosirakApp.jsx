@@ -1615,6 +1615,17 @@ function AppInner() {
     }
   };
 
+  // 쌓인 관리자 활동 로그를 한 번에 정리할 때 씁니다.
+  const handleClearActivityLog = async () => {
+    try {
+      await api.clearAdminActivityLog();
+      setActivityLog([]);
+    } catch (e) {
+      setDataError("활동 로그 정리 중 오류가 발생했어요.");
+      throw e;
+    }
+  };
+
   useEffect(() => {
     if (!session) {
       setAccount(null);
@@ -2035,6 +2046,7 @@ function AppInner() {
         onExportFullBackup={handleExportFullBackup}
         monthlyStats={monthlyStats}
         activityLog={activityLog}
+        onClearActivityLog={handleClearActivityLog}
         activeYear={activeYear}
         activeMonth={activeMonth}
         activeKey={activeKey}
@@ -2830,7 +2842,7 @@ function ReviewsPanel() {
   );
 }
 
-function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, activityLog }) {
+function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, activityLog, onClearActivityLog }) {
   const [monthlyFee, setMonthlyFee] = useState(String(pricing.monthlyFee));
   const [taxPercent, setTaxPercent] = useState(String(Math.round(pricing.taxRate * 10000) / 100));
   const [totalQuota, setTotalQuota] = useState(String(pricing.totalQuota));
@@ -2946,11 +2958,41 @@ function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdat
       </div>
 
       <div style={{ ...styles.sectionTitle, marginTop: 22 }}>관리자 활동 로그</div>
+      <ActivityLogPanel activityLog={activityLog} onClearActivityLog={onClearActivityLog} />
+    </div>
+  );
+}
+
+// 관리자 활동 로그 — 평소엔 최근 5개만 접어서 보여주고, 필요하면 펼쳐볼 수 있어요. 쌓인 로그는 한 번에 정리할 수도 있어요.
+function ActivityLogPanel({ activityLog, onClearActivityLog }) {
+  const [expanded, setExpanded] = useState(false);
+  const [clearArmed, setClearArmed] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const visibleLogs = expanded ? activityLog : activityLog.slice(0, 5);
+
+  const handleClearClick = async () => {
+    if (!clearArmed) {
+      setClearArmed(true);
+      setTimeout(() => setClearArmed(false), 4000);
+      return;
+    }
+    setClearing(true);
+    try {
+      await onClearActivityLog();
+    } catch (e) {
+      // 에러 배너는 상위에서 이미 보여줘요.
+    }
+    setClearing(false);
+    setClearArmed(false);
+  };
+
+  return (
+    <div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {activityLog.length === 0 && (
           <div style={{ fontSize: 13, color: "#9AA39A", padding: "10px 2px" }}>아직 기록된 활동이 없어요.</div>
         )}
-        {activityLog.map((log) => (
+        {visibleLogs.map((log) => (
           <div key={log.id} style={{ ...styles.adminRow, padding: "10px 12px" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#33402F" }}>{log.target_description}</div>
             <div style={{ fontSize: 11.5, color: "#9AA39A", marginTop: 2 }}>
@@ -2959,6 +3001,28 @@ function AdminSettingsView({ pricing, onUpdatePricing, deliveryWeekdays, onUpdat
           </div>
         ))}
       </div>
+
+      {activityLog.length > 5 && (
+        <button onClick={() => setExpanded((v) => !v)} style={{ ...styles.revokeBtn, width: "100%", marginTop: 8 }}>
+          {expanded ? "접기" : `전체 보기 (${activityLog.length}개)`}
+        </button>
+      )}
+
+      {activityLog.length > 0 && (
+        <button
+          onClick={handleClearClick}
+          disabled={clearing}
+          style={{
+            ...styles.revokeBtn,
+            width: "100%",
+            marginTop: 8,
+            color: clearArmed ? "#fff" : undefined,
+            background: clearArmed ? "#C0392B" : undefined,
+          }}
+        >
+          {clearing ? "정리 중..." : clearArmed ? "정말로 로그를 전부 지울까요? 다시 눌러 확정" : "오래된 로그 정리 (전체 삭제)"}
+        </button>
+      )}
     </div>
   );
 }
@@ -3114,7 +3178,7 @@ function MiniBarChart({ data, valueKey, labelKey, color, formatValue }) {
   );
 }
 
-function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, onDeleteMenuMonth, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError, language, setLanguage, t }) {
+function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus, onDeleteMenuMonth, notices, onUpdateNotices, onSendNoticeNotification, onSendMenuNotification, etransferInfo, onUpdateEtransferInfo, onApprovePayment, onRevokePayment, promoCodes, onCreatePromoCode, onTogglePromoCode, onDeletePromoCode, onUpdateServiceStartDate, onUpdateTotalQuota, onResetOrders, pricing, onUpdatePricing, deliveryWeekdays, onUpdateDeliveryWeekdays, allProfilesForRole, onUpdateProfileRole, onExportFullBackup, monthlyStats, activityLog, onClearActivityLog, activeYear, activeMonth, activeKey, onLogout, dataError, onDismissDataError, language, setLanguage, t }) {
   const [tab, setTab] = useState("overview");
   const [overviewView, setOverviewView] = useState("calendar"); // calendar | daily | family — 신청 현황 보기 방식
   const [paymentFilter, setPaymentFilter] = useState("all"); // all | partial (일부만 결제한 가정)
@@ -3682,6 +3746,7 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
             onUpdateProfileRole={onUpdateProfileRole}
             onExportFullBackup={onExportFullBackup}
             activityLog={activityLog}
+            onClearActivityLog={onClearActivityLog}
           />
         )}
       </main>
