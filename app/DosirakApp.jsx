@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { CalendarDays, UtensilsCrossed, Megaphone, ChevronLeft, ChevronRight, Check, X, CreditCard, Loader2, User, LogOut, Lock, Settings, Star, RefreshCw } from "lucide-react";
 import * as api from "./supabase-api"; // supabase-schema.sql + supabase-api.js를 먼저 프로젝트에 설정하세요
 
@@ -174,6 +174,9 @@ const TRANSLATIONS = {
     "order.totalCount": "(총 {total}회)",
     "order.menuNotReady": "{month} 메뉴가 아직 준비되지 않았어요. 관리자가 메뉴를 등록하면 여기서 신청할 수 있어요.",
     "order.quotaBlocked": "{name}(이)가 이번 사이클 신청 횟수를 다 채웠어요. 결제를 완료하면 계속 신청할 수 있어요.",
+    "push.newNoticeTitle": "📢 새 공지사항",
+    "push.menuUpdateTitle": "🍱 메뉴판이 업데이트됐어요",
+    "push.menuUpdateBody": "새로 등록된 메뉴를 확인해보세요.",
     "login.rememberMe": "아이디/비밀번호 저장",
     "resetPw.title": "새 비밀번호 설정",
     "resetPw.errorTooShort": "비밀번호는 6자 이상이어야 해요.",
@@ -412,6 +415,9 @@ const TRANSLATIONS = {
     "order.totalCount": "(of {total})",
     "order.menuNotReady": "The {month} menu isn't ready yet. Once the admin adds it, you can order here.",
     "order.quotaBlocked": "{name} has used up this cycle's order count. Once payment is completed, you can order again.",
+    "push.newNoticeTitle": "📢 New notice",
+    "push.menuUpdateTitle": "🍱 The menu has been updated",
+    "push.menuUpdateBody": "Check out the newly added menu.",
     "login.rememberMe": "Remember ID/password",
     "resetPw.title": "Set a new password",
     "resetPw.errorTooShort": "Password must be at least 6 characters.",
@@ -649,6 +655,9 @@ const TRANSLATIONS = {
     "order.totalCount": "(sur {total})",
     "order.menuNotReady": "Le menu de {month} n'est pas encore prêt. Une fois ajouté par l'administrateur, vous pourrez commander ici.",
     "order.quotaBlocked": "{name} a épuisé le nombre de commandes de ce cycle. Une fois le paiement effectué, vous pourrez continuer à commander.",
+    "push.newNoticeTitle": "📢 Nouvelle annonce",
+    "push.menuUpdateTitle": "🍱 Le menu a été mis à jour",
+    "push.menuUpdateBody": "Découvrez le nouveau menu ajouté.",
     "login.rememberMe": "Enregistrer l'identifiant/mot de passe",
     "resetPw.title": "Définir un nouveau mot de passe",
     "resetPw.errorTooShort": "Le mot de passe doit contenir au moins 6 caractères.",
@@ -885,6 +894,9 @@ const TRANSLATIONS = {
     "order.totalCount": "(共 {total} 次)",
     "order.menuNotReady": "{month}的菜单还没准备好。管理员添加后就可以在这里申请了。",
     "order.quotaBlocked": "{name}本周期的申请次数已用完。完成付款后即可继续申请。",
+    "push.newNoticeTitle": "📢 新公告",
+    "push.menuUpdateTitle": "🍱 菜单已更新",
+    "push.menuUpdateBody": "快来看看新上线的菜单吧。",
     "login.rememberMe": "记住账号/密码",
     "resetPw.title": "设置新密码",
     "resetPw.errorTooShort": "密码至少需要6位。",
@@ -1280,8 +1292,14 @@ function AppInner() {
     try {
       window.localStorage.setItem("meallions-language", lang);
     } catch (e) {}
+    // 로그인한 상태면 다음에 다른 기기로 접속하거나 재로그인해도 이 언어가 유지되도록, 그리고
+    // 관리자가 보내는 알림도 이 언어로 받을 수 있도록 프로필에도 저장해둬요.
+    if (account?.id) {
+      api.updateLanguage(account.id, lang).catch(() => {});
+    }
   };
   const t = (key, vars) => getText(language, key, vars);
+  const didSyncLanguageFromProfile = useRef(false);
 
   // 메뉴/공지/이트랜스퍼 정보도 전부 DB에서 불러와 유지됩니다.
   const [menusByMonth, setMenusByMonth] = useState({});
@@ -1369,6 +1387,18 @@ function AppInner() {
         order,
         ordersByMonth: { [activeKey]: order || [], [nextKey]: nextOrder || [] },
       });
+
+      // 이 세션에서 처음 로드된 거라면(=아직 프로필 언어를 반영 안 했다면), 저장된 언어로 맞춰줘요.
+      // (세션 도중 백그라운드 새로고침 때는 건드리지 않아요 — 방금 바꾼 언어가 도로 덮이면 안 되니까요.)
+      if (!didSyncLanguageFromProfile.current) {
+        didSyncLanguageFromProfile.current = true;
+        if (profile.language && TRANSLATIONS[profile.language]) {
+          setLanguageState(profile.language);
+          try {
+            window.localStorage.setItem("meallions-language", profile.language);
+          } catch (e) {}
+        }
+      }
     } catch (e) {
       setDataError("내 정보를 불러오는 중 오류가 발생했어요. 새로고침 후 다시 시도해주세요.");
     }
@@ -1860,12 +1890,23 @@ function AppInner() {
   // 공지사항 작성이 다 끝난 뒤, 관리자가 직접 "알림 보내기"를 눌렀을 때만 발송해요.
   // (타이핑하는 도중에 미완성 제목으로 알림이 나가는 걸 막기 위해 자동발송 대신 이 방식을 써요.)
   const handleSendNoticeNotification = async (notice) => {
-    await api.sendPushNotification({ title: "📢 새 공지사항", body: notice.title, url: "/", tag: "meallions-notice" });
+    // 공지 제목 자체(notice.title)는 관리자가 쓴 원문 그대로 보내고, "새 공지사항"이라는
+    // 안내 라벨만 받는 사람의 앱 언어에 맞게 바꿔서 보내요.
+    const messages = Object.fromEntries(
+      Object.keys(TRANSLATIONS).map((lang) => [lang, { title: getText(lang, "push.newNoticeTitle"), body: notice.title }])
+    );
+    await api.sendPushNotification({ title: messages.ko.title, body: notice.title, url: "/", tag: "meallions-notice", messages });
   };
 
   // 메뉴판을 다 편집한 뒤, 관리자가 직접 눌러서 학부모들에게 업데이트를 알려요.
   const handleSendMenuNotification = async () => {
-    await api.sendPushNotification({ title: "🍱 메뉴판이 업데이트됐어요", body: "새로 등록된 메뉴를 확인해보세요.", url: "/", tag: "meallions-menu" });
+    const messages = Object.fromEntries(
+      Object.keys(TRANSLATIONS).map((lang) => [
+        lang,
+        { title: getText(lang, "push.menuUpdateTitle"), body: getText(lang, "push.menuUpdateBody") },
+      ])
+    );
+    await api.sendPushNotification({ title: messages.ko.title, body: messages.ko.body, url: "/", tag: "meallions-menu", messages });
   };
 
 
