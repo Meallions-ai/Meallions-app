@@ -4831,20 +4831,20 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
       )}
 
       <div style={styles.legendRow}>
-        <span style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#4F7A44" }} />{t("order.selected")}</span>
-        <span style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#F2F6F2", border: "1px solid #D8E0D8" }} />{t("order.unselected")}</span>
+        <span style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#EAF3EA", border: "1.5px solid #4F7A44" }} />{t("order.selected")}</span>
+        <span style={styles.legendItem}><span style={{ ...styles.legendDot, background: "#FAFBF9", border: "1px solid #EAEEE9" }} />{t("order.unselected")}</span>
       </div>
 
       <div style={styles.calendarCard}>
         <div style={{ ...styles.weekRow, gridTemplateColumns: `repeat(${DELIVERY_WEEKDAYS.length}, 1fr)` }}>
           {DELIVERY_WEEKDAYS.map((wd) => (
-            <div key={wd} style={{ ...styles.weekCell, color: wd === 0 ? "#D97757" : wd === 6 ? "#3E6BC7" : "#9AA39A" }}>
+            <div key={wd} style={{ ...styles.weekCell, color: wd === 0 ? "#D97757" : wd === 6 ? "#3E6BC7" : "#A9B3A9" }}>
               {t(`weekday.${wd}`)}
             </div>
           ))}
         </div>
         {weeks.map((row, ri) => (
-          <div key={ri} style={{ ...styles.weekRow, gridTemplateColumns: `repeat(${DELIVERY_WEEKDAYS.length}, 1fr)` }}>
+          <div key={ri} style={{ ...styles.weekRow, gridTemplateColumns: `repeat(${DELIVERY_WEEKDAYS.length}, 1fr)`, marginTop: 5 }}>
             {DELIVERY_WEEKDAYS.map((wd) => {
               const day = row[wd];
               if (!day) return <div key={wd} style={styles.dayCell} />;
@@ -4853,15 +4853,15 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
               const canOpenDetail = !!menus[day]; // 공휴일도 탭하면 안내 문구는 볼 수 있어요
               const isSel = selected.has(day);
               const locked = hasMenu && (isSkipLocked(activeYear, activeMonth, day) || isBeforeServiceStart(activeYear, activeMonth, day));
-              // 다자녀 가정에서 이 날짜만 자녀별로 다르게 설정돼 있으면(=한 명이라도 예외가 있으면) 살짝 표시해줘요.
-              const isMixed =
-                hasMenu &&
-                familyChildren &&
-                familyChildren.length > 1 &&
-                familyChildren.some((c) => {
-                  const ov = overridesByChild?.[c.id]?.[viewKey]?.[day];
-                  return ov !== undefined && ov !== isSel;
-                });
+              const isMultiChild = hasMenu && familyChildren && familyChildren.length > 1;
+              // 다자녀 가정이면, 그날 실제로 신청하는(가정 기본값 또는 자녀별 예외 반영) 자녀들의 이니셜을 보여줘요.
+              const orderingChildren = isMultiChild
+                ? familyChildren.filter((c) => {
+                    const ov = overridesByChild?.[c.id]?.[viewKey]?.[day];
+                    return ov !== undefined ? ov : isSel;
+                  })
+                : [];
+              const isMixed = isMultiChild && orderingChildren.length > 0 && orderingChildren.length < familyChildren.length;
               return (
                 <button
                   key={wd}
@@ -4870,17 +4870,30 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
                   style={{
                     ...styles.dayCell,
                     cursor: canOpenDetail ? "pointer" : "default",
-                    background: isHolidayDay ? "#FCEBE9" : !hasMenu ? "transparent" : isSel ? "#4F7A44" : "#F2F6F2",
-                    color: isHolidayDay ? "#D9756B" : !hasMenu ? "#C9CFC9" : isSel ? "#fff" : "#33402F",
-                    opacity: locked ? 0.55 : 1,
-                    ...(isMixed ? { border: "2px solid #D97757" } : {}),
+                    background: isHolidayDay ? "#FDF3F1" : !hasMenu ? "transparent" : isSel ? "#EAF3EA" : "#FAFBF9",
+                    borderColor: isHolidayDay ? "#F6DFDB" : !hasMenu ? "transparent" : isMixed ? "#D97757" : isSel ? "#4F7A44" : "#EAEEE9",
+                    borderWidth: isMixed ? 1.5 : 1,
+                    color: isHolidayDay ? "#CB8079" : !hasMenu ? "#D5DAD3" : isSel ? "#345C30" : "#8B958A",
+                    opacity: locked ? 0.5 : 1,
                   }}
                 >
-                  <span style={{ fontSize: 14, fontWeight: isSel || isHolidayDay ? 700 : 500 }}>{day}</span>
-                  {hasMenu && !locked && <span style={{ ...styles.dot, background: isSel ? "#fff" : "#4F7A44" }} />}
-                  {locked && <span style={{ fontSize: 9 }}>🔒</span>}
-                  {isHolidayDay && <span style={{ fontSize: 9 }}>🇨🇦</span>}
-                  {isMixed && <span style={{ fontSize: 8, position: "absolute", top: 2, right: 3 }}>👪</span>}
+                  <span style={{ fontSize: 13, fontWeight: isSel || isHolidayDay ? 800 : 600 }}>{day}</span>
+                  {isMultiChild ? (
+                    orderingChildren.length > 0 && (
+                      <div style={{ display: "flex", gap: 2, marginTop: 1 }}>
+                        {orderingChildren.slice(0, 3).map((c) => (
+                          <span key={c.id} style={styles.dayChildChip}>
+                            {c.name.charAt(0)}
+                          </span>
+                        ))}
+                        {orderingChildren.length > 3 && <span style={{ fontSize: 7, color: "#4F7A44", fontWeight: 800 }}>+{orderingChildren.length - 3}</span>}
+                      </div>
+                    )
+                  ) : (
+                    hasMenu && !locked && <span style={{ ...styles.dot, background: isSel ? "#4F7A44" : "#C9CFC9" }} />
+                  )}
+                  {locked && <span style={{ fontSize: 8, position: "absolute", bottom: 3, right: 4 }}>🔒</span>}
+                  {isHolidayDay && <span style={{ fontSize: 8 }}>🇨🇦</span>}
                 </button>
               );
             })}
@@ -6067,28 +6080,44 @@ const styles = {
   },
   calendarCard: {
     background: "#fff",
-    borderRadius: 16,
-    padding: 12,
-    border: "1px solid #EDF2ED",
+    borderRadius: 18,
+    padding: "14px 10px",
+    border: "1px solid #EEF1ED",
   },
-  weekRow: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 },
-  weekCell: { textAlign: "center", fontSize: 12, fontWeight: 700, padding: "6px 0" },
+  weekRow: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 },
+  weekCell: { textAlign: "center", fontSize: 11, fontWeight: 700, letterSpacing: 0.2, padding: "2px 0 8px" },
   dayCell: {
-    aspectRatio: "1",
-    border: "none",
-    borderRadius: 10,
+    height: 46,
+    maxWidth: 64,
+    justifySelf: "center",
+    width: "100%",
+    border: "1px solid transparent",
+    borderRadius: 12,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
-    margin: 1,
+    gap: 1,
     position: "relative",
+    transition: "background 0.15s ease, border-color 0.15s ease",
   },
-  dot: { width: 4, height: 4, borderRadius: 4 },
-  legendRow: { display: "flex", gap: 16, justifyContent: "center", marginTop: 14 },
-  legendItem: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#7C8A7C" },
-  legendDot: { width: 10, height: 10, borderRadius: 10, display: "inline-block" },
+  dot: { width: 4, height: 4, borderRadius: 4, marginTop: 1 },
+  dayChildChip: {
+    width: 11,
+    height: 11,
+    borderRadius: 11,
+    background: "#4F7A44",
+    color: "#fff",
+    fontSize: 6.5,
+    fontWeight: 800,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: 1,
+  },
+  legendRow: { display: "flex", gap: 16, justifyContent: "center", marginTop: 12 },
+  legendItem: { display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#8B958A" },
+  legendDot: { width: 9, height: 9, borderRadius: 9, display: "inline-block" },
   payoutCard: {
     marginTop: 16,
     background: "#fff",
