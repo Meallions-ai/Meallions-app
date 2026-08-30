@@ -682,6 +682,15 @@ export async function resetOrdersForMonths(profileId, yearMonths) {
     .eq("profile_id", profileId)
     .in("year_month", yearMonths);
   if (error) throw error;
+
+  // 캘린더만 비우면, 예전 달(이번 달 이전)에 남아있던 체크 기록 때문에 사이클 횟수가 0으로
+  // 안 내려갈 수 있어요. 그래서 이 가정 자녀들의 사이클 기준점(cutoff)도 지금 시각으로 같이
+  // 당겨줘서, 확실하게 "0회"부터 다시 시작하도록 만들어요.
+  const { error: cutoffErr } = await supabase
+    .from("children")
+    .update({ cycle_paid_through: new Date() })
+    .eq("profile_id", profileId);
+  if (cutoffErr) throw cutoffErr;
 }
 
 // ---------------- 관리자 계정 관리 ----------------

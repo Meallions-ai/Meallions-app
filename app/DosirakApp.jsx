@@ -181,6 +181,8 @@ const TRANSLATIONS = {
     "push.newNoticeTitle": "📢 새 공지사항",
     "push.menuUpdateTitle": "🍱 메뉴판이 업데이트됐어요",
     "push.menuUpdateBody": "새로 등록된 메뉴를 확인해보세요.",
+    "push.paymentApprovedTitle": "✅ 결제가 승인됐어요",
+    "push.paymentApprovedBody": "{name} 결제가 확인됐어요. 새 사이클이 시작됐어요!",
     "login.rememberMe": "아이디/비밀번호 저장",
     "resetPw.title": "새 비밀번호 설정",
     "resetPw.errorTooShort": "비밀번호는 6자 이상이어야 해요.",
@@ -427,6 +429,8 @@ const TRANSLATIONS = {
     "push.newNoticeTitle": "📢 New notice",
     "push.menuUpdateTitle": "🍱 The menu has been updated",
     "push.menuUpdateBody": "Check out the newly added menu.",
+    "push.paymentApprovedTitle": "✅ Payment approved",
+    "push.paymentApprovedBody": "{name}'s payment has been confirmed. A new cycle has started!",
     "login.rememberMe": "Remember ID/password",
     "resetPw.title": "Set a new password",
     "resetPw.errorTooShort": "Password must be at least 6 characters.",
@@ -671,6 +675,8 @@ const TRANSLATIONS = {
     "push.newNoticeTitle": "📢 Nouvelle annonce",
     "push.menuUpdateTitle": "🍱 Le menu a été mis à jour",
     "push.menuUpdateBody": "Découvrez le nouveau menu ajouté.",
+    "push.paymentApprovedTitle": "✅ Paiement approuvé",
+    "push.paymentApprovedBody": "Le paiement de {name} a été confirmé. Un nouveau cycle a commencé !",
     "login.rememberMe": "Enregistrer l'identifiant/mot de passe",
     "resetPw.title": "Définir un nouveau mot de passe",
     "resetPw.errorTooShort": "Le mot de passe doit contenir au moins 6 caractères.",
@@ -915,6 +921,8 @@ const TRANSLATIONS = {
     "push.newNoticeTitle": "📢 新公告",
     "push.menuUpdateTitle": "🍱 菜单已更新",
     "push.menuUpdateBody": "快来看看新上线的菜单吧。",
+    "push.paymentApprovedTitle": "✅ 付款已确认",
+    "push.paymentApprovedBody": "{name}的付款已确认。新周期已经开始！",
     "login.rememberMe": "记住账号/密码",
     "resetPw.title": "设置新密码",
     "resetPw.errorTooShort": "密码至少需要6位。",
@@ -1906,6 +1914,7 @@ function AppInner() {
         ),
       }));
     } catch (e) {
+      console.error("결제 알림 닫기 저장 실패:", e);
       // 배너 닫기 실패는 조용히 무시해도 괜찮은 수준이에요 (다음 로드 때 다시 시도됨)
     }
   };
@@ -1918,12 +1927,44 @@ function AppInner() {
     return paymentId;
   };
 
+  // 결제 승인 알림을 그 학부모에게만 보낼 때, profile_id와 자녀 이름을 찾아줘요.
+  const findParentAndChildByPaymentId = (paymentId) => {
+    for (const a of adminAccounts) {
+      const c = a.children.find((c) => c.payment?.id === paymentId);
+      if (c) return { profileId: a.id, childName: c.name };
+    }
+    return null;
+  };
+
   const handleApprovePayment = async (paymentId) => {
     try {
       const label = findChildLabelByPaymentId(paymentId);
+      const target = findParentAndChildByPaymentId(paymentId);
       await api.approvePayment(paymentId);
       loadAdminAccounts();
       logActivity("approve_payment", `결제 승인: ${label}`, { paymentId });
+      // 결제 승인 즉시 그 학부모에게 알려줘요 (그 사람의 앱 언어 설정에 맞게 번역해서).
+      if (target) {
+        const messages = Object.fromEntries(
+          Object.keys(TRANSLATIONS).map((lang) => [
+            lang,
+            {
+              title: getText(lang, "push.paymentApprovedTitle"),
+              body: getText(lang, "push.paymentApprovedBody", { name: target.childName }),
+            },
+          ])
+        );
+        api
+          .sendPushNotification({
+            title: messages.ko.title,
+            body: messages.ko.body,
+            url: "/",
+            tag: "meallions-payment-approved",
+            targetProfileIds: [target.profileId],
+            messages,
+          })
+          .catch(() => {});
+      }
     } catch (e) {
       setDataError("결제 승인 중 오류가 발생했어요. 다시 시도해주세요.");
     }
@@ -3421,6 +3462,17 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
   );
   const visiblePayments = paymentFilter === "partial" ? allChildPayments.filter((p) => partialFamilyIds.has(p.parent.id)) : allChildPayments;
 
+  // 다자녀 가정은 자녀 카드가 따로따로 흩어져 있으면 보기 복잡하니, 가정(부모) 단위로 묶어서 보여줘요.
+  const familyGroups = [];
+  const familyIndexById = new Map();
+  for (const p of visiblePayments) {
+    if (!familyIndexById.has(p.parent.id)) {
+      familyIndexById.set(p.parent.id, familyGroups.length);
+      familyGroups.push({ parent: p.parent, items: [] });
+    }
+    familyGroups[familyIndexById.get(p.parent.id)].items.push(p);
+  }
+
   // CSV(엑셀에서 열 수 있는 형식) 내보내기 — 학부모/자녀/신청현황/결제상태를 한 줄씩
   const formatDateForCsv = (d) => (d ? new Date(d).toLocaleString("ko-CA", { timeZone: "America/Vancouver" }) : "");
 
@@ -3796,50 +3848,76 @@ function AdminApp({ accounts, removedChildPayments, menusByMonth, onUpdateMenus,
               </button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {visiblePayments.length === 0 && (
+              {familyGroups.length === 0 && (
                 <div style={{ fontSize: 13, color: "#9AA39A", padding: "10px 2px" }}>해당하는 결제 내역이 없어요.</div>
               )}
-              {visiblePayments.map(({ parent, child, status, amount }) => (
-                <div key={child.id} style={styles.adminRow} className="fade-item">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: 14.5, fontWeight: 800, color: "#33402F" }}>{child.name}</div>
-                      <div style={{ fontSize: 12.5, color: "#7C8A7C", marginTop: 3 }}>
-                        {parent.parentName}
-                        {status !== "unpaid" && child.payment?.method && <> · e-Transfer</>}
-                        {status === "unpaid" && <> · {child.cycleUsed || 0}/{getChildQuota(child)}회 진행 중</>}
+              {familyGroups.map(({ parent, items }) => {
+                const familyTotal = items.reduce((sum, it) => sum + it.amount, 0);
+                const paidCount = items.filter((it) => it.status === "paid").length;
+                const pendingCount = items.filter((it) => it.status === "pending").length;
+                return (
+                  <div key={parent.id} style={styles.adminRow} className="fade-item">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 800, color: "#33402F" }}>
+                        {parent.parentName} 가정 {items.length > 1 && <span style={{ fontSize: 12, color: "#9AA39A", fontWeight: 600 }}>· 자녀 {items.length}명</span>}
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 14.5, fontWeight: 800, color: "#33402F" }}>{formatCAD(familyTotal)}</div>
+                        {items.length > 1 && (
+                          <div style={{ fontSize: 11, color: "#7C8A7C" }}>결제완료 {paidCount} · 입금확인중 {pendingCount} · 미결제 {items.length - paidCount - pendingCount}</div>
+                        )}
                       </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: status === "paid" ? "#4F7A44" : status === "pending" ? "#B5872E" : "#C0392B" }}>
-                        {formatCAD(amount)}
-                      </div>
-                      <div
-                        style={{
-                          ...styles.paymentBadge,
-                          ...(status === "paid" ? styles.paymentBadgePaid : status === "pending" ? styles.paymentBadgePending : styles.paymentBadgeUnpaid),
-                          marginTop: 4,
-                        }}
-                      >
-                        {status === "paid" ? "결제완료" : status === "pending" ? "입금확인중" : (child.cycleUsed || 0) >= getChildQuota(child) ? "결제 대상" : "미결제"}
-                      </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {items.map(({ child, status, amount }) => (
+                        <div key={child.id} style={{ background: "#F7F9F6", borderRadius: 10, padding: "10px 12px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#33402F" }}>{child.name}</div>
+                              <div style={{ fontSize: 11.5, color: "#7C8A7C", marginTop: 2 }}>
+                                {status !== "unpaid" && child.payment?.method && <>e-Transfer</>}
+                                {status === "unpaid" && <>{child.cycleUsed || 0}/{getChildQuota(child)}회 진행 중</>}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: 14, fontWeight: 800, color: status === "paid" ? "#4F7A44" : status === "pending" ? "#B5872E" : "#C0392B" }}>
+                                {formatCAD(amount)}
+                              </div>
+                              {status !== "unpaid" && child.payment?.discount_amount > 0 && (
+                                <div style={{ fontSize: 10.5, color: "#4F7A44", fontWeight: 700, marginTop: 1 }}>
+                                  🎟️ {child.payment.promo_code} · -{formatCAD(child.payment.discount_amount)} 할인
+                                </div>
+                              )}
+                              <div
+                                style={{
+                                  ...styles.paymentBadge,
+                                  ...(status === "paid" ? styles.paymentBadgePaid : status === "pending" ? styles.paymentBadgePending : styles.paymentBadgeUnpaid),
+                                  marginTop: 4,
+                                }}
+                              >
+                                {status === "paid" ? "결제완료" : status === "pending" ? "입금확인중" : (child.cycleUsed || 0) >= getChildQuota(child) ? "결제 대상" : "미결제"}
+                              </div>
+                            </div>
+                          </div>
+                          {status === "pending" && (
+                            <button onClick={() => onApprovePayment(child.payment.id)} style={styles.approveBtn}>
+                              입금 확인 · 승인하기
+                            </button>
+                          )}
+                          {status === "paid" && (
+                            <button onClick={() => onRevokePayment(child.payment.id)} style={styles.revokeBtn}>
+                              승인 취소
+                            </button>
+                          )}
+                          <ServiceStartDateField child={child} onUpdateServiceStartDate={onUpdateServiceStartDate} />
+                          <TotalQuotaField child={child} onUpdateTotalQuota={onUpdateTotalQuota} />
+                        </div>
+                      ))}
                     </div>
+                    <ResetOrdersButton profileId={parent.id} parentName={parent.parentName} onResetOrders={onResetOrders} />
                   </div>
-                  {status === "pending" && (
-                    <button onClick={() => onApprovePayment(child.payment.id)} style={styles.approveBtn}>
-                      입금 확인 · 승인하기
-                    </button>
-                  )}
-                  {status === "paid" && (
-                    <button onClick={() => onRevokePayment(child.payment.id)} style={styles.revokeBtn}>
-                      승인 취소
-                    </button>
-                  )}
-                  <ResetOrdersButton profileId={parent.id} parentName={parent.parentName} onResetOrders={onResetOrders} />
-                  <ServiceStartDateField child={child} onUpdateServiceStartDate={onUpdateServiceStartDate} />
-                  <TotalQuotaField child={child} onUpdateTotalQuota={onUpdateTotalQuota} />
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {removedChildPayments && removedChildPayments.length > 0 && (
@@ -4067,11 +4145,6 @@ function ProfileView({ account, onUpdateChild, onUpdateAddress, onUpdateRecovery
       <div style={styles.sectionTitle}>{t("profile.recoveryEmailTitle")}</div>
       <RecoveryEmailField currentAuthEmail={currentAuthEmail} onUpdateRecoveryEmail={onUpdateRecoveryEmail} t={t} />
 
-      <div style={styles.sectionTitle}>{t("profile.languageTitle")}</div>
-      <div style={styles.profileCard}>
-        <LanguageSelect language={language} setLanguage={setLanguage} t={t} />
-      </div>
-
       <div style={styles.sectionTitle}>{t("profile.notificationsTitle")}</div>
       <PushNotificationToggle pushStatus={pushStatus} onTogglePush={onTogglePush} t={t} />
 
@@ -4159,6 +4232,11 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
   const viewYear = viewDate.getFullYear();
   const viewMonth = viewDate.getMonth() + 1;
   const viewKey = monthKey(viewYear, viewMonth);
+  // "지금 안 보고 있는 쪽" 달의 key — 신청 초과 방지 실시간 체크에 사용해요.
+  const nextMonthKeyForBlock = useMemo(() => {
+    const d = new Date(activeYear, activeMonth, 1); // activeMonth가 1-based라 그대로 넣으면 다음 달의 1일이 돼요.
+    return monthKey(d.getFullYear(), d.getMonth() + 1);
+  }, [activeYear, activeMonth]);
   const viewLabel = monthLabelLocalized(viewYear, viewMonth, language);
   const viewMenus = menusByMonth[viewKey] || {};
   const availableDays = useMemo(() => Object.keys(viewMenus).filter((d) => !viewMenus[d].isHoliday).map(Number).sort((a, b) => a - b), [viewMenus]);
@@ -4180,10 +4258,34 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
   const currentMenus = menusByMonth[activeKey] || {};
   const currentAvailableDays = useMemo(() => Object.keys(currentMenus).filter((d) => !currentMenus[d].isHoliday).map(Number).sort((a, b) => a - b), [currentMenus]);
   const upcomingDeadline = useMemo(() => getUpcomingDeadline(currentAvailableDays, activeYear, activeMonth, 48), [currentAvailableDays, activeYear, activeMonth]);
-  const [dismissDeadlineBanner, setDismissDeadlineBanner] = useState(false);
+  // 배너를 닫으면 새로고침해도 계속 닫힌 채로 있도록 localStorage에 저장해요. 다음 마감(시각이 바뀜)이
+  // 되면 키 자체가 달라져서 자동으로 다시 보여요 — 매번 새로 알려줘야 하니까요.
+  const deadlineBannerKey = upcomingDeadline ? `meallions-dismiss-deadline-${account.id}-${upcomingDeadline.toISOString()}` : null;
+  const [dismissDeadlineBanner, setDismissDeadlineBanner] = useState(() => {
+    try {
+      return !!(deadlineBannerKey && window.localStorage.getItem(deadlineBannerKey));
+    } catch (e) {
+      return false;
+    }
+  });
   useEffect(() => {
-    if (!upcomingDeadline) setDismissDeadlineBanner(false);
+    if (!upcomingDeadline) {
+      setDismissDeadlineBanner(false);
+      return;
+    }
+    try {
+      setDismissDeadlineBanner(!!(deadlineBannerKey && window.localStorage.getItem(deadlineBannerKey)));
+    } catch (e) {
+      setDismissDeadlineBanner(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upcomingDeadline]);
+  const handleDismissDeadlineBanner = () => {
+    setDismissDeadlineBanner(true);
+    try {
+      if (deadlineBannerKey) window.localStorage.setItem(deadlineBannerKey, "1");
+    } catch (e) {}
+  };
   // 결제할 자녀를 체크박스로 선택 — 체크한 인원 수만큼 $126씩 곱해서 한 번에 결제해요.
   const [selectedChildIds, setSelectedChildIds] = useState(
     () =>
@@ -4231,10 +4333,36 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
     (c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleCommitted ?? c.cycleUsed ?? 0) >= getChildQuota(c)
   );
   const quotaFullyUsed = childrenDue.length > 0;
-  const [dismissQuotaBanner, setDismissQuotaBanner] = useState(false);
+  // 이것도 마찬가지로 새로고침해도 닫힌 채 유지되도록 저장해요. 대상 자녀 목록(결제해야 할 자녀들)이
+  // 바뀌면(=한 명이라도 결제해서 목록이 달라지면) 키가 달라져서 자동으로 다시 보여요.
+  const quotaBannerKey = quotaFullyUsed
+    ? `meallions-dismiss-quota-${account.id}-${childrenDue.map((c) => c.id).sort().join(",")}`
+    : null;
+  const [dismissQuotaBanner, setDismissQuotaBanner] = useState(() => {
+    try {
+      return !!(quotaBannerKey && window.localStorage.getItem(quotaBannerKey));
+    } catch (e) {
+      return false;
+    }
+  });
   useEffect(() => {
-    if (!quotaFullyUsed) setDismissQuotaBanner(false); // 다시 미달 상태가 되면 닫힘 상태 초기화
-  }, [quotaFullyUsed]);
+    if (!quotaFullyUsed) {
+      setDismissQuotaBanner(false);
+      return;
+    }
+    try {
+      setDismissQuotaBanner(!!(quotaBannerKey && window.localStorage.getItem(quotaBannerKey)));
+    } catch (e) {
+      setDismissQuotaBanner(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotaFullyUsed, quotaBannerKey]);
+  const handleDismissQuotaBanner = () => {
+    setDismissQuotaBanner(true);
+    try {
+      if (quotaBannerKey) window.localStorage.setItem(quotaBannerKey, "1");
+    } catch (e) {}
+  };
   const toggleChildSelection = (childId) => {
     setSelectedChildIds((prev) => {
       const next = new Set(prev);
@@ -4281,9 +4409,22 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
       }
       // 이미 (실제 배송 여부와 상관없이) 체크해둔 날짜 총합이 사이클 횟수를 다 채웠고 아직 결제 안 한
       // 자녀가 있으면, 더 이상 신청을 추가할 수 없게 막아요. (이미 선택했던 날짜를 취소하는 건 계속 가능해요.)
-      const blockedChild = account.children.find(
-        (c) => (c.payment?.status || "unpaid") === "unpaid" && (c.cycleCommitted ?? c.cycleUsed ?? 0) >= getChildQuota(c)
-      );
+      // 서버에서 다시 계산해서 내려주는 cycleCommitted는 저장 후 살짝 시간차를 두고 갱신되기 때문에,
+      // 빠르게 연속으로 탭하면 그 값이 아직 안 올라온 사이에 12개를 넘겨 체크할 수 있었어요. 그래서
+      // 지금 화면에서 실시간으로 체크된 개수(selected.size + 다른 달에 저장된 개수)도 같이 반영해서,
+      // 둘 중 더 큰 값을 기준으로 즉시 막아요.
+      const otherKey = monthOffset === 0 ? nextMonthKeyForBlock : activeKey;
+      const otherSaved = account.ordersByMonth && account.ordersByMonth[otherKey];
+      const otherMenus = menusByMonth[otherKey] || {};
+      const otherAvailableCount = Object.keys(otherMenus).filter((d) => !otherMenus[d].isHoliday).length;
+      const otherCount = otherSaved ? otherSaved.length : hasNeverPaidChild ? 0 : otherAvailableCount;
+      const liveCommittedTotal = selected.size + otherCount;
+      const blockedChild = account.children.find((c) => {
+        if ((c.payment?.status || "unpaid") !== "unpaid") return false;
+        const quota = getChildQuota(c);
+        const serverCommitted = c.cycleCommitted ?? c.cycleUsed ?? 0;
+        return Math.max(liveCommittedTotal, serverCommitted) >= quota;
+      });
       if (blockedChild) {
         setQuotaBlockedMsg(t("order.quotaBlocked", { name: blockedChild.name }));
         setTimeout(() => setQuotaBlockedMsg(""), 3500);
@@ -4366,7 +4507,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
               })}
             </div>
           </div>
-          <button onClick={() => setDismissDeadlineBanner(true)} style={styles.paymentNoticeClose}>
+          <button onClick={handleDismissDeadlineBanner} style={styles.paymentNoticeClose}>
             <X size={16} />
           </button>
         </div>
@@ -4381,7 +4522,7 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
             </div>
           </div>
           <button onClick={() => setTab("payment")} style={styles.quotaReachedBtn}>{t("banner.goToPayment")}</button>
-          <button onClick={() => setDismissQuotaBanner(true)} style={styles.paymentNoticeClose}>
+          <button onClick={handleDismissQuotaBanner} style={styles.paymentNoticeClose}>
             <X size={16} />
           </button>
         </div>
@@ -4625,17 +4766,18 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
       </div>
 
       <div style={styles.calendarCard}>
-        <div style={styles.weekRow}>
-          {WEEKDAYS.map((w, i) => (
-            <div key={w} style={{ ...styles.weekCell, color: i === 0 ? "#D97757" : i === 6 ? "#3E6BC7" : "#9AA39A" }}>
-              {t(`weekday.${i}`)}
+        <div style={{ ...styles.weekRow, gridTemplateColumns: `repeat(${DELIVERY_WEEKDAYS.length}, 1fr)` }}>
+          {DELIVERY_WEEKDAYS.map((wd) => (
+            <div key={wd} style={{ ...styles.weekCell, color: wd === 0 ? "#D97757" : wd === 6 ? "#3E6BC7" : "#9AA39A" }}>
+              {t(`weekday.${wd}`)}
             </div>
           ))}
         </div>
         {weeks.map((row, ri) => (
-          <div key={ri} style={styles.weekRow}>
-            {row.map((day, ci) => {
-              if (!day) return <div key={ci} style={styles.dayCell} />;
+          <div key={ri} style={{ ...styles.weekRow, gridTemplateColumns: `repeat(${DELIVERY_WEEKDAYS.length}, 1fr)` }}>
+            {DELIVERY_WEEKDAYS.map((wd) => {
+              const day = row[wd];
+              if (!day) return <div key={wd} style={styles.dayCell} />;
               const isHolidayDay = !!menus[day]?.isHoliday;
               const hasMenu = !!menus[day] && !isHolidayDay;
               const canOpenDetail = !!menus[day]; // 공휴일도 탭하면 안내 문구는 볼 수 있어요
@@ -4643,7 +4785,7 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
               const locked = hasMenu && (isSkipLocked(activeYear, activeMonth, day) || isBeforeServiceStart(activeYear, activeMonth, day));
               return (
                 <button
-                  key={ci}
+                  key={wd}
                   onClick={() => (canOpenDetail ? setDetailDay(day) : null)}
                   disabled={!canOpenDetail}
                   style={{
