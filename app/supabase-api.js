@@ -304,6 +304,44 @@ export async function saveOrder(userId, yearMonth, selectedDays) {
   if (error) throw error;
 }
 
+// ---------------- 자녀별 예외(가정 기본 신청과 다르게 설정한 날짜) ----------------
+
+// 이 가정 자녀들의 예외 기록을 전부 가져와요. { [childId]: { [yearMonth]: { [day]: boolean } } } 형태로 정리해서 돌려줘요.
+export async function getOrderOverrides(childIds) {
+  if (!childIds || childIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from("order_overrides")
+    .select("child_id, year_month, day, selected")
+    .in("child_id", childIds);
+  if (error) throw error;
+  const result = {};
+  for (const row of data || []) {
+    if (!result[row.child_id]) result[row.child_id] = {};
+    if (!result[row.child_id][row.year_month]) result[row.child_id][row.year_month] = {};
+    result[row.child_id][row.year_month][row.day] = row.selected;
+  }
+  return result;
+}
+
+// 특정 자녀의 특정 날짜를 "가정 기본값과 다르게" 신청/스킵으로 저장해요.
+export async function setOrderOverride(childId, yearMonth, day, selected) {
+  const { error } = await supabase
+    .from("order_overrides")
+    .upsert({ child_id: childId, year_month: yearMonth, day, selected }, { onConflict: "child_id,year_month,day" });
+  if (error) throw error;
+}
+
+// 특정 자녀의 그 날짜 예외를 지워서, 다시 가정 기본값을 따르게 해요.
+export async function clearOrderOverride(childId, yearMonth, day) {
+  const { error } = await supabase
+    .from("order_overrides")
+    .delete()
+    .eq("child_id", childId)
+    .eq("year_month", yearMonth)
+    .eq("day", day);
+  if (error) throw error;
+}
+
 // ---------------- 결제 (자녀 1명당 1건씩 — 다자녀 가정은 자녀별로 각각 결제) ----------------
 
 export async function submitPayment(userId, childId, yearMonth, amount, promo = null) {
@@ -444,6 +482,9 @@ export async function getCycleUsage(profileId, children) {
     .eq("profile_id", profileId);
   if (error) throw error;
 
+  const childIds = children.map((c) => c.id);
+  const overridesByChild = await getOrderOverrides(childIds);
+
   // 스킵 횟수까지 계산하려면 그 기간의 실제 배송일(메뉴) 목록이 필요해서, 사이클 시작 시점부터 지금(+다음달 선신청분)까지의 메뉴를 불러와요.
   const now = new Date();
   const minCutoff = children.reduce((min, c) => {
@@ -470,6 +511,7 @@ export async function getCycleUsage(profileId, children) {
   const cycleUsage = {};
   for (const child of children) {
     const cutoff = getCycleCutoff(child);
+    const childOverrides = overridesByChild[child.id] || {};
     let used = 0;
     let skipped = 0;
     let committed = 0; // 실제 배송 여부와 상관없이, 이미 체크해둔 날짜 총합(과거+미래) — 12회 초과 신청 방지용
@@ -482,13 +524,15 @@ export async function getCycleUsage(profileId, children) {
       // 학부모가 그 달을 한 번도 안 건드려서 신청 기록 자체가 없으면, 캘린더 화면 기본값(전부 신청됨)과
       // 똑같이 "신청됨"으로 봐요. 실제로 저장된 기록이 있는 달에서는(=한 번이라도 건드렸으면) 체크 안 한
       // 날짜는 마감을 기다리지 않고 스킵 버튼을 누른 즉시 "스킵"으로 셉니다.
-      const isSelected = orderSet ? orderSet.has(row.day) : true;
+      // 단, 이 자녀만 따로 예외(override) 설정이 있으면 가정 공통값보다 그걸 우선해요.
+      const override = childOverrides[row.year_month]?.[row.day];
+      const isSelected = override !== undefined ? override : orderSet ? orderSet.has(row.day) : true;
       if (isSelected) {
         committed++;
         // "사용" 횟수는 실제로 도시락이 나간(=날짜가 이미 지난) 날짜만 셉니다. 미래에 미리 체크해둔 날짜는
         // 아무리 많아도 아직 사용 횟수(=결제 기준)에 안 들어가고, 그날이 실제로 지나야 비로소 카운트돼요.
         if (date <= now) used++;
-      } else if (orderSet) {
+      } else if (orderSet || override !== undefined) {
         skipped++;
       }
     }
@@ -691,6 +735,20 @@ export async function resetOrdersForMonths(profileId, yearMonths) {
     .update({ cycle_paid_through: new Date() })
     .eq("profile_id", profileId);
   if (cutoffErr) throw cutoffErr;
+
+  // 이 가정 자녀들의 "자녀별로 다르게 설정한" 예외 기록도 그 달들에 한해 같이 지워줘요.
+  // 안 지우면 초기화한 뒤에도 예전 예외가 남아서, 캘린더는 비었는데 특정 자녀만 이상하게 보일 수 있어요.
+  const { data: kids, error: kidsErr } = await supabase.from("children").select("id").eq("profile_id", profileId);
+  if (kidsErr) throw kidsErr;
+  const kidIds = (kids || []).map((k) => k.id);
+  if (kidIds.length > 0) {
+    const { error: ovErr } = await supabase
+      .from("order_overrides")
+      .delete()
+      .in("child_id", kidIds)
+      .in("year_month", yearMonths);
+    if (ovErr) throw ovErr;
+  }
 }
 
 // ---------------- 관리자 계정 관리 ----------------

@@ -127,6 +127,10 @@ const TRANSLATIONS = {
 
     "detail.applyBtn": "신청",
     "detail.cancelBtn": "스킵",
+    "detail.familyDefault": "가정 기본값",
+    "detail.perChildTitle": "자녀별로 다르게 설정",
+    "detail.revertToDefault": "기본값으로",
+    "detail.followingDefault": "가정 기본값을 따름",
     "detail.lockedNotice": "🔒 이 날짜는 변경 마감(전주 금요일)이 지나 신청 상태를 바꿀 수 없어요.",
     "detail.holidayNoDelivery": "이 날은 배송이 없어요.",
     "detail.serviceNotStartedNotice": "🔒 아직 서비스 시작일 이전이라 신청·스킵을 변경할 수 없어요.",
@@ -373,6 +377,10 @@ const TRANSLATIONS = {
 
     "detail.applyBtn": "Order",
     "detail.cancelBtn": "Skip",
+    "detail.familyDefault": "Family default",
+    "detail.perChildTitle": "Set differently per child",
+    "detail.revertToDefault": "Use default",
+    "detail.followingDefault": "Following family default",
     "detail.lockedNotice": "🔒 The change deadline (the Friday before) has passed, so this day can't be changed.",
     "detail.holidayNoDelivery": "There is no delivery on this day.",
     "detail.serviceNotStartedNotice": "🔒 This is before your service start date, so it can't be ordered or changed.",
@@ -618,6 +626,10 @@ const TRANSLATIONS = {
     "payment.alreadyPaidNotice": "Vous avez déjà payé pour le prochain cycle. Après {remaining} commandes supplémentaires, vous devrez payer à nouveau — pas besoin de repayer pour l'instant.",
     "detail.applyBtn": "Commander",
     "detail.cancelBtn": "Ignorer",
+    "detail.familyDefault": "Par défaut (famille)",
+    "detail.perChildTitle": "Définir différemment par enfant",
+    "detail.revertToDefault": "Utiliser par défaut",
+    "detail.followingDefault": "Suit la valeur par défaut",
     "detail.lockedNotice": "🔒 La date limite de modification (vendredi précédent) est passée, ce jour ne peut plus être modifié.",
     "detail.holidayNoDelivery": "Il n'y a pas de livraison ce jour-là.",
     "detail.serviceNotStartedNotice": "🔒 C'est avant votre date de début de service, donc cela ne peut pas être commandé ou modifié.",
@@ -862,6 +874,10 @@ const TRANSLATIONS = {
 
     "detail.applyBtn": "申请",
     "detail.cancelBtn": "跳过",
+    "detail.familyDefault": "家庭默认设置",
+    "detail.perChildTitle": "按孩子分别设置",
+    "detail.revertToDefault": "使用默认设置",
+    "detail.followingDefault": "跟随家庭默认设置",
     "order.payDone": "支付完成 ✓",
     "payment.alreadyPaidNotice": "您已经支付了下一周期的费用。再申请{remaining}次后才需要下次付款——现在不用再付款了。",
     "detail.lockedNotice": "🔒 该日期已过更改截止时间（前一周周五），无法再更改申请状态。",
@@ -1430,10 +1446,12 @@ function AppInner() {
       const childIds = profile.children.map((c) => c.id);
       let paymentByChild = {};
       let cycleUsage = {};
+      let overridesByChild = {};
       try {
-        [paymentByChild, cycleUsage] = await Promise.all([
+        [paymentByChild, cycleUsage, overridesByChild] = await Promise.all([
           api.getLatestPayments(childIds),
           api.getCycleUsage(userId, profile.children),
+          api.getOrderOverrides(childIds),
         ]);
       } catch (e) {
         console.error("결제/사이클 정보 불러오기 실패:", e);
@@ -1458,6 +1476,7 @@ function AppInner() {
         // 빈 배열([])이면 "학부모가 전부 체크 해제함"(→ 진짜로 하나도 선택 안 된 상태)이에요. 이 둘을 구분하기 위해
         // 여기서 || []로 뭉개지 않고, null은 null 그대로 남겨둬요.
         ordersByMonth: { [activeKey]: order, [nextKey]: nextOrder },
+        overridesByChild, // { [childId]: { [yearMonth]: { [day]: true/false } } } — 가정 기본값과 다른 자녀별 예외
       });
 
       // 이 세션에서 처음 로드된 거라면 언어를 서로 맞춰줘요.
@@ -1810,6 +1829,48 @@ function AppInner() {
       refreshCycleUsage();
     } catch (e) {
       setDataError("신청 내역 저장 중 오류가 발생했어요. 다시 시도해주세요.");
+    }
+  };
+
+  // 다자녀 가정에서, 특정 자녀만 그날 가정 기본값과 다르게(신청 또는 스킵) 설정해요.
+  const handleToggleChildOverride = async (childId, yearMonth, day, newValue) => {
+    try {
+      await api.setOrderOverride(childId, yearMonth, day, newValue);
+      setAccount((prev) => ({
+        ...prev,
+        overridesByChild: {
+          ...(prev.overridesByChild || {}),
+          [childId]: {
+            ...((prev.overridesByChild || {})[childId] || {}),
+            [yearMonth]: {
+              ...(((prev.overridesByChild || {})[childId] || {})[yearMonth] || {}),
+              [day]: newValue,
+            },
+          },
+        },
+      }));
+      refreshCycleUsage();
+    } catch (e) {
+      setDataError("자녀별 신청 저장 중 오류가 발생했어요. 다시 시도해주세요.");
+    }
+  };
+
+  // 그 자녀의 그날 예외를 지워서, 다시 가정 기본값을 따르게 해요.
+  const handleClearChildOverride = async (childId, yearMonth, day) => {
+    try {
+      await api.clearOrderOverride(childId, yearMonth, day);
+      setAccount((prev) => {
+        const byChild = { ...(prev.overridesByChild || {}) };
+        const byMonth = { ...(byChild[childId] || {}) };
+        const byDay = { ...(byMonth[yearMonth] || {}) };
+        delete byDay[day];
+        byMonth[yearMonth] = byDay;
+        byChild[childId] = byMonth;
+        return { ...prev, overridesByChild: byChild };
+      });
+      refreshCycleUsage();
+    } catch (e) {
+      setDataError("자녀별 신청 초기화 중 오류가 발생했어요. 다시 시도해주세요.");
     }
   };
 
@@ -2171,6 +2232,8 @@ function AppInner() {
       activeLabel={activeLabel}
       onUpdateChild={handleUpdateChildren}
       onUpdateOrder={handleUpdateOrder}
+      onToggleChildOverride={handleToggleChildOverride}
+      onClearChildOverride={handleClearChildOverride}
       onUpdatePayment={handleUpdatePayment}
       onCancelPayment={handleCancelPayment}
       onCopyPreviousMonth={handleCopyPreviousMonth}
@@ -4224,7 +4287,7 @@ function ProfileView({ account, onUpdateChild, onUpdateAddress, onUpdateRecovery
   );
 }
 
-function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeYear, activeMonth, activeKey, activeLabel, onUpdateChild, onUpdateOrder, onUpdatePayment, onCancelPayment, onDismissPaymentNotice, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, onLogout, dataError, onDismissDataError, canInstall, onInstallClick, onCopyPreviousMonth, language, setLanguage, t }) {
+function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeYear, activeMonth, activeKey, activeLabel, onUpdateChild, onUpdateOrder, onToggleChildOverride, onClearChildOverride, onUpdatePayment, onCancelPayment, onDismissPaymentNotice, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, onLogout, dataError, onDismissDataError, canInstall, onInstallClick, onCopyPreviousMonth, language, setLanguage, t }) {
   const [tab, setTab] = useState("order");
   // 신청 탭은 사이클이 끝나기 1주일 전부터 다음 달 신청도 미리 받을 수 있도록, 이번 달/다음 달을 전환할 수 있어요.
   const [monthOffset, setMonthOffset] = useState(0); // 0 = 이번달, 1 = 다음달
@@ -4575,6 +4638,8 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
             toggleDay={toggleDay}
             usedCount={usedCount}
             familyChildren={account.children}
+            overridesByChild={account.overridesByChild}
+            viewKey={viewKey}
             quotaBlockedMsg={quotaBlockedMsg}
             setDetailDay={setDetailDay}
             isBeforeServiceStart={isBeforeServiceStart}
@@ -4610,6 +4675,11 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
           lockedReason={isBeforeServiceStart(viewYear, viewMonth, detailDay) ? "serviceNotStarted" : "deadline"}
           onToggle={() => toggleDay(detailDay)}
           onClose={() => setDetailDay(null)}
+          familyChildren={account.children}
+          viewKey={viewKey}
+          overridesByChild={account.overridesByChild}
+          onToggleChildOverride={onToggleChildOverride}
+          onClearChildOverride={onClearChildOverride}
           t={t}
         />
       )}
@@ -4667,7 +4737,7 @@ function TabButton({ icon, label, active, onClick }) {
   );
 }
 
-function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, monthLabel: viewMonthLabel, monthOffset, onPrevMonth, onNextMonth, selected, toggleDay, usedCount, familyChildren, quotaBlockedMsg, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, onClearSelection, t }) {
+function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, monthLabel: viewMonthLabel, monthOffset, onPrevMonth, onNextMonth, selected, toggleDay, usedCount, familyChildren, overridesByChild, viewKey, quotaBlockedMsg, setDetailDay, isBeforeServiceStart, onCopyPreviousMonth, copyingPrevMonth, onClearSelection, t }) {
   return (
     <div>
       {typeof monthOffset === "number" && (
@@ -4783,6 +4853,15 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
               const canOpenDetail = !!menus[day]; // 공휴일도 탭하면 안내 문구는 볼 수 있어요
               const isSel = selected.has(day);
               const locked = hasMenu && (isSkipLocked(activeYear, activeMonth, day) || isBeforeServiceStart(activeYear, activeMonth, day));
+              // 다자녀 가정에서 이 날짜만 자녀별로 다르게 설정돼 있으면(=한 명이라도 예외가 있으면) 살짝 표시해줘요.
+              const isMixed =
+                hasMenu &&
+                familyChildren &&
+                familyChildren.length > 1 &&
+                familyChildren.some((c) => {
+                  const ov = overridesByChild?.[c.id]?.[viewKey]?.[day];
+                  return ov !== undefined && ov !== isSel;
+                });
               return (
                 <button
                   key={wd}
@@ -4794,12 +4873,14 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
                     background: isHolidayDay ? "#FCEBE9" : !hasMenu ? "transparent" : isSel ? "#4F7A44" : "#F2F6F2",
                     color: isHolidayDay ? "#D9756B" : !hasMenu ? "#C9CFC9" : isSel ? "#fff" : "#33402F",
                     opacity: locked ? 0.55 : 1,
+                    ...(isMixed ? { border: "2px solid #D97757" } : {}),
                   }}
                 >
                   <span style={{ fontSize: 14, fontWeight: isSel || isHolidayDay ? 700 : 500 }}>{day}</span>
                   {hasMenu && !locked && <span style={{ ...styles.dot, background: isSel ? "#fff" : "#4F7A44" }} />}
                   {locked && <span style={{ fontSize: 9 }}>🔒</span>}
                   {isHolidayDay && <span style={{ fontSize: 9 }}>🇨🇦</span>}
+                  {isMixed && <span style={{ fontSize: 8, position: "absolute", top: 2, right: 3 }}>👪</span>}
                 </button>
               );
             })}
@@ -5015,7 +5096,7 @@ function PaymentView({ children, selectedChildIds, onToggleChild, onCheckout, t 
   );
 }
 
-function DayDetailSheet({ day, monthLabel: mLabel, menu, isSelected, locked, lockedReason, onToggle, onClose, t }) {
+function DayDetailSheet({ day, monthLabel: mLabel, menu, isSelected, locked, lockedReason, onToggle, onClose, familyChildren, viewKey, overridesByChild, onToggleChildOverride, onClearChildOverride, t }) {
   return (
     <div style={styles.sheetBackdrop} onClick={onClose}>
       <div style={styles.sheet} onClick={(e) => e.stopPropagation()} className="fade-item">
@@ -5040,32 +5121,103 @@ function DayDetailSheet({ day, monthLabel: mLabel, menu, isSelected, locked, loc
                 {lockedReason === "serviceNotStarted" ? t("detail.serviceNotStartedNotice") : t("detail.lockedNotice")}
               </div>
             ) : (
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button
-                  onClick={() => { if (!isSelected) { onToggle(); } onClose(); }}
-                  style={{
-                    ...styles.sheetBtn,
-                    flex: 1,
-                    background: isSelected ? "#4F7A44" : "#F2F6F2",
-                    color: isSelected ? "#fff" : "#7C8A7C",
-                    fontWeight: isSelected ? 800 : 600,
-                  }}
-                >
-                  {isSelected ? `✓ ${t("detail.applyBtn")}` : t("detail.applyBtn")}
-                </button>
-                <button
-                  onClick={() => { if (isSelected) { onToggle(); } onClose(); }}
-                  style={{
-                    ...styles.sheetBtn,
-                    flex: 1,
-                    background: !isSelected ? "#FCE4E1" : "#F2F6F2",
-                    color: !isSelected ? "#C0392B" : "#7C8A7C",
-                    fontWeight: !isSelected ? 800 : 600,
-                  }}
-                >
-                  {!isSelected ? `✓ ${t("detail.cancelBtn")}` : t("detail.cancelBtn")}
-                </button>
-              </div>
+              <>
+                {familyChildren && familyChildren.length > 1 && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9AA39A", marginTop: 12, marginBottom: 4 }}>
+                    {t("detail.familyDefault")}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                  <button
+                    onClick={() => { if (!isSelected) { onToggle(); } onClose(); }}
+                    style={{
+                      ...styles.sheetBtn,
+                      flex: 1,
+                      background: isSelected ? "#4F7A44" : "#F2F6F2",
+                      color: isSelected ? "#fff" : "#7C8A7C",
+                      fontWeight: isSelected ? 800 : 600,
+                    }}
+                  >
+                    {isSelected ? `✓ ${t("detail.applyBtn")}` : t("detail.applyBtn")}
+                  </button>
+                  <button
+                    onClick={() => { if (isSelected) { onToggle(); } onClose(); }}
+                    style={{
+                      ...styles.sheetBtn,
+                      flex: 1,
+                      background: !isSelected ? "#FCE4E1" : "#F2F6F2",
+                      color: !isSelected ? "#C0392B" : "#7C8A7C",
+                      fontWeight: !isSelected ? 800 : 600,
+                    }}
+                  >
+                    {!isSelected ? `✓ ${t("detail.cancelBtn")}` : t("detail.cancelBtn")}
+                  </button>
+                </div>
+
+                {familyChildren && familyChildren.length > 1 && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#9AA39A", marginBottom: 6 }}>
+                      {t("detail.perChildTitle")}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {familyChildren.map((child) => {
+                        const override = overridesByChild?.[child.id]?.[viewKey]?.[day];
+                        const hasOverride = override !== undefined;
+                        const effective = hasOverride ? override : isSelected;
+                        return (
+                          <div key={child.id} style={{ background: "#F7F9F6", borderRadius: 10, padding: "8px 10px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                              <span style={{ fontSize: 12.5, fontWeight: 700, color: "#33402F" }}>{child.name}</span>
+                              {hasOverride ? (
+                                <button
+                                  onClick={() => onClearChildOverride(child.id, viewKey, day)}
+                                  style={{ fontSize: 10.5, color: "#4F7A44", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                                >
+                                  ↺ {t("detail.revertToDefault")}
+                                </button>
+                              ) : (
+                                <span style={{ fontSize: 10.5, color: "#C9CFC9" }}>{t("detail.followingDefault")}</span>
+                              )}
+                            </div>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button
+                                onClick={() => onToggleChildOverride(child.id, viewKey, day, true)}
+                                style={{
+                                  ...styles.sheetBtn,
+                                  flex: 1,
+                                  padding: "8px 0",
+                                  fontSize: 12.5,
+                                  background: effective ? "#4F7A44" : "#fff",
+                                  color: effective ? "#fff" : "#7C8A7C",
+                                  fontWeight: effective ? 800 : 600,
+                                  border: effective ? "none" : "1px solid #E2E7E2",
+                                }}
+                              >
+                                {effective ? `✓ ${t("detail.applyBtn")}` : t("detail.applyBtn")}
+                              </button>
+                              <button
+                                onClick={() => onToggleChildOverride(child.id, viewKey, day, false)}
+                                style={{
+                                  ...styles.sheetBtn,
+                                  flex: 1,
+                                  padding: "8px 0",
+                                  fontSize: 12.5,
+                                  background: !effective ? "#FCE4E1" : "#fff",
+                                  color: !effective ? "#C0392B" : "#7C8A7C",
+                                  fontWeight: !effective ? 800 : 600,
+                                  border: !effective ? "none" : "1px solid #E2E7E2",
+                                }}
+                              >
+                                {!effective ? `✓ ${t("detail.cancelBtn")}` : t("detail.cancelBtn")}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -5931,6 +6083,7 @@ const styles = {
     justifyContent: "center",
     gap: 3,
     margin: 1,
+    position: "relative",
   },
   dot: { width: 4, height: 4, borderRadius: 4 },
   legendRow: { display: "flex", gap: 16, justifyContent: "center", marginTop: 14 },
