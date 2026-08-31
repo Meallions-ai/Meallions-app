@@ -1743,9 +1743,10 @@ function AppInner() {
       loadAllProfilesForRole();
       loadMonthlyStats();
       loadActivityLog();
+      api.getPushSubscriptionStatus(account.id).then(setPushStatus).catch(() => setPushStatus("unsupported"));
     } else if (account) {
       api.getCurrentAuthEmail().then(setCurrentAuthEmail);
-      api.getPushSubscriptionStatus().then(setPushStatus).catch(() => setPushStatus("unsupported"));
+      api.getPushSubscriptionStatus(account.id).then(setPushStatus).catch(() => setPushStatus("unsupported"));
     }
   }, [account?.role, account?.id, activeKey]);
 
@@ -1871,6 +1872,30 @@ function AppInner() {
       refreshCycleUsage();
     } catch (e) {
       setDataError("자녀별 신청 초기화 중 오류가 발생했어요. 다시 시도해주세요.");
+    }
+  };
+
+  // "선택 초기화" 버튼 등으로 그 달 전체를 처음부터 다시 고를 때, 그 달에 남아있던 자녀별 예외를
+  // 전부 같이 지워줘요. 안 그러면 가정 캘린더는 비었는데 예외 때문에 몇몇 날짜가 계속 체크된 것처럼
+  // 보여서 "초기화가 안 먹힌다"고 느껴질 수 있어요.
+  const handleClearMonthOverrides = async (yearMonth) => {
+    try {
+      const childIds = account.children.map((c) => c.id);
+      await api.clearOrderOverridesForMonth(childIds, yearMonth);
+      setAccount((prev) => {
+        const byChild = { ...(prev.overridesByChild || {}) };
+        for (const c of prev.children) {
+          if (byChild[c.id]) {
+            const byMonth = { ...byChild[c.id] };
+            delete byMonth[yearMonth];
+            byChild[c.id] = byMonth;
+          }
+        }
+        return { ...prev, overridesByChild: byChild };
+      });
+      refreshCycleUsage();
+    } catch (e) {
+      // 조용히 무시해도 괜찮아요 — 화면(캘린더)은 이미 비워졌고, 다음 새로고침 때 서버와 다시 맞춰져요.
     }
   };
 
@@ -2234,6 +2259,7 @@ function AppInner() {
       onUpdateOrder={handleUpdateOrder}
       onToggleChildOverride={handleToggleChildOverride}
       onClearChildOverride={handleClearChildOverride}
+      onClearMonthOverrides={handleClearMonthOverrides}
       onUpdatePayment={handleUpdatePayment}
       onCancelPayment={handleCancelPayment}
       onCopyPreviousMonth={handleCopyPreviousMonth}
@@ -4287,7 +4313,7 @@ function ProfileView({ account, onUpdateChild, onUpdateAddress, onUpdateRecovery
   );
 }
 
-function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeYear, activeMonth, activeKey, activeLabel, onUpdateChild, onUpdateOrder, onToggleChildOverride, onClearChildOverride, onUpdatePayment, onCancelPayment, onDismissPaymentNotice, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, onLogout, dataError, onDismissDataError, canInstall, onInstallClick, onCopyPreviousMonth, language, setLanguage, t }) {
+function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeYear, activeMonth, activeKey, activeLabel, onUpdateChild, onUpdateOrder, onToggleChildOverride, onClearChildOverride, onClearMonthOverrides, onUpdatePayment, onCancelPayment, onDismissPaymentNotice, onUpdateAddress, onUpdateRecoveryEmail, currentAuthEmail, onViewPrivacyPolicy, pushStatus, onTogglePush, onLogout, dataError, onDismissDataError, canInstall, onInstallClick, onCopyPreviousMonth, language, setLanguage, t }) {
   const [tab, setTab] = useState("order");
   // 신청 탭은 사이클이 끝나기 1주일 전부터 다음 달 신청도 미리 받을 수 있도록, 이번 달/다음 달을 전환할 수 있어요.
   const [monthOffset, setMonthOffset] = useState(0); // 0 = 이번달, 1 = 다음달
@@ -4385,9 +4411,11 @@ function MainApp({ account, menus, menusByMonth, notices, etransferInfo, activeY
   };
 
   // 이번 달(또는 다음 달) 신청 전체를 처음부터 다시 고를 수 있도록 싹 비워줘요 (전부 스킵 상태로).
+  // 가정 공통 캘린더뿐 아니라, 그 달에 남아있던 자녀별 예외도 같이 지워야 진짜로 다 비워진 것처럼 보여요.
   const handleClearSelection = () => {
     setSelected(new Set());
     onUpdateOrder(viewKey, []);
+    onClearMonthOverrides(viewKey);
   };
 
   const usedCount = selected.size; // 이번 달 신청 날짜 수 — 참고용 표시일 뿐, 결제 사이클과는 무관해요.

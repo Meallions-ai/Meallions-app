@@ -355,6 +355,18 @@ export async function clearOrderOverride(childId, yearMonth, day) {
   if (error) throw error;
 }
 
+// "선택 초기화" 등으로 그 달 전체를 처음부터 다시 고를 때, 그 달에 남아있는 자녀별 예외도
+// 한꺼번에 지워요. 안 지우면 초기화했는데도 예외 때문에 일부 날짜가 계속 체크된 것처럼 보여요.
+export async function clearOrderOverridesForMonth(childIds, yearMonth) {
+  if (!childIds || childIds.length === 0) return;
+  const { error } = await supabase
+    .from("order_overrides")
+    .delete()
+    .in("child_id", childIds)
+    .eq("year_month", yearMonth);
+  if (error) throw error;
+}
+
 // ---------------- 결제 (자녀 1명당 1건씩 — 다자녀 가정은 자녀별로 각각 결제) ----------------
 
 export async function submitPayment(userId, childId, yearMonth, amount, promo = null) {
