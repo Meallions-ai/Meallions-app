@@ -185,16 +185,29 @@ export async function getAdminData(yearMonth) {
     if (!ordersByProfile[o.profile_id]) ordersByProfile[o.profile_id] = [];
     ordersByProfile[o.profile_id].push(o);
   }
+  // 자녀별로 "가정 기본값과 다르게" 설정해둔 예외 기록도 같이 가져와서, 학부모 화면과 똑같은 기준으로 계산해요.
+  const overridesByChildAdmin = await getOrderOverrides(allChildIds);
   const computeCycleUsed = (profileId, child) => {
     const cutoff = getCycleCutoff(child);
+    const childOverrides = overridesByChildAdmin[child.id] || {};
+    // 이 가정의 달별 신청 기록을 순회하면서, 그 자녀만의 예외가 있으면 그걸 우선 적용해요.
+    const monthsForFamily = new Set((ordersByProfile[profileId] || []).map((o) => o.year_month));
+    // 예외만 있고 가정 기본 신청 기록 자체는 없는 달도 있을 수 있으니, 그 달들도 함께 봐요.
+    Object.keys(childOverrides).forEach((ym) => monthsForFamily.add(ym));
     let count = 0;
-    for (const o of ordersByProfile[profileId] || []) {
-      const [y, m] = o.year_month.split("-").map(Number);
-      for (const day of o.selected_days || []) {
+    for (const yearMonth of monthsForFamily) {
+      const [y, m] = yearMonth.split("-").map(Number);
+      const familyRow = (ordersByProfile[profileId] || []).find((o) => o.year_month === yearMonth);
+      const familySet = new Set(familyRow?.selected_days || []);
+      const monthOverrides = childOverrides[yearMonth] || {};
+      const daysToCheck = new Set([...familySet, ...Object.keys(monthOverrides).map(Number)]);
+      for (const day of daysToCheck) {
         const date = new Date(y, m - 1, day);
         // 선불 서비스라서, 실제 배송 여부와 상관없이 이미 체크(신청)해둔 날짜 총합으로 세요.
         // (학부모 화면의 결제 판단 기준과 동일해요 — 안 그러면 신청은 다 했는데 결제 창이 안 뜨는 것처럼 보여요.)
-        if (date > cutoff) count++;
+        if (date <= cutoff) continue;
+        const isSelected = monthOverrides[day] !== undefined ? monthOverrides[day] : familySet.has(day);
+        if (isSelected) count++;
       }
     }
     return count;
@@ -783,10 +796,28 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 // 지금 이 브라우저가 푸시 알림을 구독 중인지 확인 (알림 켜기/끄기 토글 상태 표시용)
-export async function getPushSubscriptionStatus() {
+// profileId를 같이 주면: 권한(permission)은 이미 허용돼 있는데 브라우저 쪽 구독만 어느샌가
+// 죽어있는 경우(iOS에서 특히 자주 발생해요), 사용자가 아무것도 안 눌러도 조용히 다시 구독해서
+// 계속 알림을 받을 수 있게 해줘요. profileId를 안 주면 그냥 지금 상태만 확인해요.
+export async function getPushSubscriptionStatus(profileId) {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
   const registration = await navigator.serviceWorker.ready;
-  const sub = await registration.pushManager.getSubscription();
+  let sub = await registration.pushManager.getSubscription();
+  if (!sub && profileId && typeof Notification !== "undefined" && Notification.permission === "granted") {
+    try {
+      sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      const json = sub.toJSON();
+      await supabase.from("push_subscriptions").upsert(
+        { profile_id: profileId, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
+        { onConflict: "endpoint" }
+      );
+    } catch (e) {
+      sub = null; // 재구독도 실패하면 그냥 평소처럼 "구독 안 됨"으로 보여줘요
+    }
+  }
   return sub ? "subscribed" : "unsubscribed";
 }
 
