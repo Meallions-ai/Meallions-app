@@ -4781,18 +4781,7 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
           </button>
         </div>
       )}
-      <div style={styles.quotaCard}>
-        <div>
-          <div style={styles.quotaLabel}>{t("order.usedTitle")}</div>
-          <div style={styles.quotaNums}>
-            <span style={{ fontSize: 28, fontWeight: 800, color: "#4F7A44" }}>{usedCount}</span>
-            <span style={{ fontSize: 16, color: "#7C8A7C" }}> {t("order.daysUnit")}</span>
-          </div>
-        </div>
-        <div style={styles.quotaRight}>
-          <div style={{ ...styles.quotaBadge, background: "#E7F3EA", color: "#4F7A44" }}>{t("order.cycleHint")}</div>
-        </div>
-      </div>
+      <div style={{ fontSize: 11.5, color: "#9AA39A", textAlign: "center", marginBottom: 10 }}>{t("order.cycleHint")}</div>
 
       {familyChildren && familyChildren.some((c) => !c.hasEverPaid) && (
         <div style={{ fontSize: 12.5, color: "#C0392B", background: "#FCEBE9", borderRadius: 10, padding: "10px 12px", marginBottom: 10, fontWeight: 600 }}>
@@ -4837,10 +4826,12 @@ function OrderView({ weeks, menus, availableDays, activeYear, activeMonth, month
         </div>
       )}
 
-      <button onClick={onCopyPreviousMonth} disabled={copyingPrevMonth} style={styles.copyPrevMonthBtn}>
-        {copyingPrevMonth ? <Loader2 size={14} className="spin" /> : null} {t("order.copyPrevMonth")}
-      </button>
-      <ClearSelectionButton onClear={onClearSelection} t={t} />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+        <button onClick={onCopyPreviousMonth} disabled={copyingPrevMonth} style={{ ...styles.copyPrevMonthBtn, flex: 1, marginTop: 0 }}>
+          {copyingPrevMonth ? <Loader2 size={14} className="spin" /> : null} {t("order.copyPrevMonth")}
+        </button>
+        <ClearSelectionButton onClear={onClearSelection} t={t} />
+      </div>
       <p style={styles.helperText}>
         {t("order.deliveryHelper")}
         <br />{t("order.lockHelper")}
@@ -4954,7 +4945,8 @@ function ClearSelectionButton({ onClear, t }) {
       onClick={handleClick}
       style={{
         ...styles.copyPrevMonthBtn,
-        marginTop: 8,
+        marginTop: 0,
+        flex: armed ? "1 1 100%" : 1,
         background: armed ? "#FCE4E1" : styles.copyPrevMonthBtn.background,
         color: armed ? "#C0392B" : styles.copyPrevMonthBtn.color,
         border: armed ? "1.5px solid #F2C9C2" : styles.copyPrevMonthBtn.border,
